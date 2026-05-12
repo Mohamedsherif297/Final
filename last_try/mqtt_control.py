@@ -191,7 +191,7 @@ def main():
     
     # Setup MQTT client
     print("\n[MQTT] Connecting to HiveMQ Cloud...")
-    client = mqtt.Client(CLIENT_ID)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, CLIENT_ID)
     client.username_pw_set(USERNAME, PASSWORD)
     
     # Configure TLS
