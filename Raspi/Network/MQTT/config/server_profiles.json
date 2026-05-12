@@ -1,0 +1,27 @@
+{
+  "_comment": "Broker profiles \u2014 select 'local' for LAN testing, 'cloud' for WAN/internet access",
+  "local": {
+    "host": "192.168.1.9",
+    "port": 1883,
+    "use_tls": false,
+    "username": null,
+    "password": null,
+    "description": "Local Mosquitto broker on the same network as the Pi"
+  },
+  "cloud": {
+    "host": "78ed3eab06c348d0948ef7681cf4a377.s1.eu.hivemq.cloud",
+    "port": 8883,
+    "use_tls": true,
+    "username": "mohamed",
+    "password": "P@ssw0rd",
+    "description": "HiveMQ cloud broker with TLS and authentication"
+  },
+  "public_cloud": {
+    "host": "broker.hivemq.com",
+    "port": 1883,
+    "use_tls": false,
+    "username": null,
+    "password": null,
+    "description": "HiveMQ public cloud broker \u2014 no credentials required (for testing only)"
+  }
+}

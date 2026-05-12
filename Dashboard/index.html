@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surveillance Car — Control Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+
+  <!-- ── TOP BAR ─────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+      </svg>
+      <span class="brand-name">SURVEILLANCE<span class="brand-accent"> CAR</span></span>
+    </div>
+
+    <div class="topbar-status">
+      <div class="status-pill" id="connectionPill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Disconnected</span>
+      </div>
+      <div class="fps-badge" id="fpsBadge">-- FPS</div>
+      <div class="uptime-badge" id="uptimeBadge">Uptime: --</div>
+    </div>
+
+    <div class="topbar-connect">
+      <input id="piIpInput" type="text" placeholder="192.168.1.xx" value="192.168.1.100" spellcheck="false" />
+      <button id="connectBtn" class="btn btn-primary">Connect</button>
+    </div>
+  </header>
+
+  <!-- ── MAIN LAYOUT ─────────────────────────────────────────────── -->
+  <main class="layout">
+
+    <!-- LEFT COLUMN: VIDEO + ALERTS -->
+    <section class="col-left">
+
+      <!-- Video Feed -->
+      <div class="card video-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            Live Feed
+          </span>
+          <span class="stream-quality" id="streamQuality">640 × 480</span>
+        </div>
+        <div class="video-wrapper">
+          <canvas id="videoCanvas" width="640" height="480"></canvas>
+          <div class="video-overlay" id="videoOverlay">
+            <div class="offline-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+            </div>
+            <p>Stream offline</p>
+            <p class="overlay-sub">Connect to Raspberry Pi to start</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Emergency + Quick Status -->
+      <div class="card emergency-card">
+        <button id="emergencyBtn" class="emergency-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          EMERGENCY STOP
+        </button>
+        <button id="resetEmergencyBtn" class="btn btn-outline reset-btn">Reset Emergency</button>
+      </div>
+
+      <!-- Event Log -->
+      <div class="card log-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Event Log
+          </span>
+          <button id="clearLogBtn" class="btn-ghost">Clear</button>
+        </div>
+        <div class="log-scroll" id="eventLog">
+          <div class="log-entry log-info">System ready. Enter Pi IP and connect.</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: CONTROLS -->
+    <section class="col-right">
+
+      <!-- Movement Control -->
+      <div class="card control-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="8 12 12 8 16 12"/><line x1="12" y1="16" x2="12" y2="8"/></svg>
+            Movement
+          </span>
+          <div class="mode-tabs">
+            <button class="mode-tab active" id="modeMotor" title="Arrow keys → Motor">Motor</button>
+            <button class="mode-tab" id="modeServo" title="Arrow keys → Servo">Servo</button>
+          </div>
+        </div>
+
+        <div class="dpad-area">
+          <div class="dpad">
+            <div class="dpad-row">
+              <button class="dpad-btn dpad-up" id="btnUp" data-dir="up" title="W">
+                <span style="font-size: 1.2rem; font-weight: bold;">W</span>
+              </button>
+            </div>
+            <div class="dpad-row">
+              <button class="dpad-btn dpad-left" id="btnLeft" data-dir="left" title="A">
+                <span style="font-size: 1.2rem; font-weight: bold;">A</span>
+              </button>
+              <button class="dpad-btn dpad-center" id="btnStop" title="Stop / Center">
+                <span style="font-size: 1.2rem; font-weight: bold;">■</span>
+              </button>
+              <button class="dpad-btn dpad-right" id="btnRight" data-dir="right" title="D">
+                <span style="font-size: 1.2rem; font-weight: bold;">D</span>
+              </button>
+            </div>
+            <div class="dpad-row">
+              <button class="dpad-btn dpad-down" id="btnDown" data-dir="down" title="S">
+                <span style="font-size: 1.2rem; font-weight: bold;">S</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="mode-hint" id="modeHint">
+            <kbd>W A S D</kbd> Motor &nbsp;|&nbsp; <kbd>↑ ↓ ← →</kbd> Servo &nbsp;|&nbsp; <kbd>Q/E</kbd> Speed
+          </div>
+        </div>
+
+        <!-- Speed Slider -->
+        <div class="slider-row">
+          <label class="slider-label">Speed</label>
+          <input type="range" id="speedSlider" min="0" max="100" value="70" class="slider" />
+          <span class="slider-val" id="speedVal">70%</span>
+        </div>
+      </div>
+
+      <!-- Servo Control -->
+      <div class="card servo-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+            Camera Servo
+          </span>
+          <button id="centerServoBtn" class="btn btn-outline btn-sm">Center</button>
+        </div>
+
+        <!-- Pan/Tilt visual -->
+        <div class="servo-visual">
+          <div class="crosshair-wrap">
+            <div class="crosshair-bg">
+              <div class="crosshair-dot" id="crosshairDot"></div>
+              <div class="crosshair-h"></div>
+              <div class="crosshair-v"></div>
+            </div>
+            <div class="servo-labels">
+              <span id="panLabel">Pan: 0°</span>
+              <span id="tiltLabel">Tilt: 0°</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pan Slider -->
+        <div class="slider-row">
+          <label class="slider-label">Pan</label>
+          <input type="range" id="panSlider" min="-90" max="90" value="0" class="slider slider-servo" />
+          <span class="slider-val" id="panVal">0°</span>
+        </div>
+        <!-- Tilt Slider -->
+        <div class="slider-row">
+          <label class="slider-label">Tilt</label>
+          <input type="range" id="tiltSlider" min="-90" max="90" value="0" class="slider slider-servo" />
+          <span class="slider-val" id="tiltVal">0°</span>
+        </div>
+      </div>
+
+      <!-- LED Control -->
+      <div class="card led-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            LED
+          </span>
+          <div class="led-preview" id="ledPreview"></div>
+        </div>
+
+        <div class="led-presets">
+          <button class="led-preset" data-color="idle" style="--c:#4fc3f7">Idle</button>
+          <button class="led-preset" data-color="moving" style="--c:#66bb6a">Moving</button>
+          <button class="led-preset" data-color="emergency" style="--c:#ef5350">Alert</button>
+          <button class="led-preset" data-color="off" style="--c:#333">Off</button>
+        </div>
+
+        <div class="led-effects">
+          <button class="effect-btn" data-effect="rainbow">🌈 Rainbow</button>
+          <button class="effect-btn" data-effect="blink">✦ Blink</button>
+          <button class="effect-btn" data-effect="pulse">◉ Pulse</button>
+          <button class="effect-btn stop-effect" id="stopEffectBtn">■ Stop</button>
+        </div>
+
+        <div class="rgb-row">
+          <label class="slider-label">R</label>
+          <input type="range" id="rSlider" min="0" max="255" value="0" class="slider slider-r" />
+          <label class="slider-label ml">G</label>
+          <input type="range" id="gSlider" min="0" max="255" value="80" class="slider slider-g" />
+          <label class="slider-label ml">B</label>
+          <input type="range" id="bSlider" min="0" max="255" value="255" class="slider slider-b" />
+          <button id="setRgbBtn" class="btn btn-outline btn-sm">Set</button>
+        </div>
+      </div>
+
+      <!-- Sensor Panel -->
+      <div class="card sensor-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Sensors
+          </span>
+          <span class="sensor-rate">10 Hz</span>
+        </div>
+
+        <div class="sensor-grid">
+          <!-- Ultrasonic gauge -->
+          <div class="sensor-item">
+            <div class="gauge-wrap">
+              <svg class="gauge-svg" viewBox="0 0 120 70">
+                <path class="gauge-track" d="M10 65 A55 55 0 0 1 110 65" stroke-width="10" fill="none"/>
+                <path class="gauge-fill" id="gaugeFill" d="M10 65 A55 55 0 0 1 110 65" stroke-width="10" fill="none"
+                      stroke-dasharray="173" stroke-dashoffset="173"/>
+              </svg>
+              <div class="gauge-value-wrap">
+                <span class="gauge-val" id="distanceVal">--</span>
+                <span class="gauge-unit">cm</span>
+              </div>
+            </div>
+            <div class="sensor-label">Ultrasonic Distance</div>
+          </div>
+
+          <!-- Status badges -->
+          <div class="sensor-item status-badges">
+            <div class="badge-row">
+              <span class="badge-label">Motor</span>
+              <span class="status-badge" id="motorBadge">--</span>
+            </div>
+            <div class="badge-row">
+              <span class="badge-label">Servo Pan</span>
+              <span class="status-badge" id="servoPanBadge">--</span>
+            </div>
+            <div class="badge-row">
+              <span class="badge-label">Servo Tilt</span>
+              <span class="status-badge" id="servoTiltBadge">--</span>
+            </div>
+            <div class="badge-row">
+              <span class="badge-label">Emergency</span>
+              <span class="status-badge badge-ok" id="emergencyBadge">OK</span>
+            </div>
+            <div class="badge-row">
+              <span class="badge-label">Obstacle</span>
+              <span class="status-badge badge-ok" id="obstacleBadge">Clear</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

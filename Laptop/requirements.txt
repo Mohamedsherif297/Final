@@ -1,0 +1,10 @@
+# Laptop Controller Requirements
+
+# MQTT Communication
+paho-mqtt>=1.6.1
+
+# GUI (tkinter is included with Python)
+# No additional packages needed for tkinter
+
+# Optional: For testing
+pytest>=7.4.3

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surveillance Car - Presentation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Roboto+Mono&display=swap');
+
+        :root {
+            --bg-color: #050505;
+            --text-main: #f3f4f6;
+            --accent: #0ea5e9;
+            --accent-glow: rgba(14, 165, 233, 0.4);
+            --secondary: #8b5cf6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow: hidden; /* Slide behavior */
+        }
+
+        /* Slide Container */
+        .slider-container {
+            width: 100vw;
+            height: 100vh;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+        }
+
+        /* Individual Slide */
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 4rem;
+            position: relative;
+        }
+
+        .slide-content {
+            max-width: 1000px;
+            width: 100%;
+            z-index: 2;
+        }
+
+        /* Slide Backgrounds */
+        .bg-gradient-1 { background: radial-gradient(circle at center, #111827 0%, #050505 100%); }
+        .bg-gradient-2 { background: radial-gradient(circle at top right, rgba(14, 165, 233, 0.15) 0%, #050505 70%); }
+        .bg-gradient-3 { background: radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.15) 0%, #050505 70%); }
+
+        /* Typography */
+        h1 {
+            font-size: 5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-size: 3.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            color: #fff;
+        }
+
+        h3 {
+            font-size: 2rem;
+            font-weight: 400;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+
+        p {
+            font-size: 1.5rem;
+            line-height: 1.6;
+            color: #9ca3af;
+            margin-bottom: 1.5rem;
+        }
+
+        .highlight {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Grid Layouts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        /* Feature Cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 1rem;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 30px var(--accent-glow);
+        }
+
+        .card h4 {
+            font-size: 1.5rem;
+            color: #fff;
+            margin-bottom: 1rem;
+        }
+
+        .card p {
+            font-size: 1.1rem;
+            margin-bottom: 0;
+        }
+
+        /* Code Block */
+        .code-block {
+            background: #111827;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1.1rem;
+            color: #a78bfa;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Navigation Hint */
+        .scroll-hint {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: bounce 2s infinite;
+            color: rgba(255,255,255,0.5);
+            font-size: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0) translateX(-50%); }
+            40% { transform: translateY(-10px) translateX(-50%); }
+            60% { transform: translateY(-5px) translateX(-50%); }
+        }
+
+        /* Progress Dots */
+        .progress-dots {
+            position: fixed;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            z-index: 10;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+
+        /* Active dot class (would normally be toggled by JS, but keeping it simple here) */
+        .slider-container { scroll-behavior: smooth; }
+        
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            background: rgba(14, 165, 233, 0.2);
+            color: #38bdf8;
+            margin-bottom: 1rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="progress-dots">
+        <a href="#slide1" class="dot"></a>
+        <a href="#slide2" class="dot"></a>
+        <a href="#slide3" class="dot"></a>
+        <a href="#slide4" class="dot"></a>
+        <a href="#slide5" class="dot"></a>
+    </div>
+
+    <div class="slider-container">
+        
+        <!-- Slide 1: Title -->
+        <section id="slide1" class="slide bg-gradient-1">
+            <div class="slide-content" style="text-align: center;">
+                <span class="badge">Project Presentation</span>
+                <h1>IoT Surveillance Car</h1>
+                <p>A Professional Hardware, Network, and AI Integrated System</p>
+            </div>
+            <div class="scroll-hint">
+                <span>Scroll Down</span>
+                <span>↓</span>
+            </div>
+        </section>
+
+        <!-- Slide 2: Overview -->
+        <section id="slide2" class="slide bg-gradient-2">
+            <div class="slide-content">
+                <h2>Project Overview</h2>
+                <div class="grid-2">
+                    <div>
+                        <p>The IoT Surveillance Car is a highly modular, secure, and responsive robotics platform powered by a <span class="highlight">Raspberry Pi</span>.</p>
+                        <p>It acts as a physical security node capable of remote piloting, live audio/video streaming, and autonomous safety responses.</p>
+                    </div>
+                    <div>
+                        <div class="code-block">
+                            // Current Status<br>
+                            Phase_1: {<br>
+                            &nbsp;&nbsp;Hardware: "Complete",<br>
+                            &nbsp;&nbsp;Network: "Complete",<br>
+                            &nbsp;&nbsp;Dashboard: "Complete"<br>
+                            }<br>
+                            Phase_2: "In Progress"
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 3: Architecture -->
+        <section id="slide3" class="slide bg-gradient-3">
+            <div class="slide-content">
+                <h2>System Architecture</h2>
+                <p>Built on a decoupled, thread-safe architecture.</p>
+                <div class="feature-grid">
+                    <div class="card">
+                        <h4>Hardware Abstraction</h4>
+                        <p>36 independent modules managing GPIO, PWM, Motors (L298N), and Pan/Tilt Servos via a centralized Singleton Manager.</p>
+                    </div>
+                    <div class="card">
+                        <h4>Dual Networking</h4>
+                        <p>MQTT handles low-bandwidth telemetry and control, while WebSockets broadcast high-performance 30FPS JPEG frames.</p>
+                    </div>
+                    <div class="card">
+                        <h4>Safety Layer</h4>
+                        <p>Multi-trigger emergency stops, watchdog heartbeats, and continuous ultrasonic obstacle filtering.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4: Web Dashboard -->
+        <section id="slide4" class="slide bg-gradient-2">
+            <div class="slide-content">
+                <h2>The Web Dashboard</h2>
+                <div class="grid-2">
+                    <div>
+                        <h3>Zero-Install Control</h3>
+                        <p>A fully responsive HTML5 interface requiring no backend server. Simply open in any browser.</p>
+                        <ul>
+                            <li style="color:#9ca3af; font-size: 1.2rem; margin-bottom: 0.5rem;">Live 640x480 Video Feed</li>
+                            <li style="color:#9ca3af; font-size: 1.2rem; margin-bottom: 0.5rem;">Keyboard & D-Pad telemetry</li>
+                            <li style="color:#9ca3af; font-size: 1.2rem; margin-bottom: 0.5rem;">Dynamic LED Effects Control</li>
+                            <li style="color:#9ca3af; font-size: 1.2rem; margin-bottom: 0.5rem;">Real-time Ultrasonic Gauges</li>
+                        </ul>
+                    </div>
+                    <div class="card" style="border-color: var(--accent); box-shadow: 0 0 40px var(--accent-glow);">
+                        <div style="width:100%; height:200px; background:rgba(0,0,0,0.5); border-radius:0.5rem; display:flex; align-items:center; justify-content:center; color:#fff;">
+                            [ Dashboard Interface Concept ]
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5: The Future (Phase 2) -->
+        <section id="slide5" class="slide bg-gradient-1">
+            <div class="slide-content" style="text-align: center;">
+                <h2>Phase 2: AI Vision Integration</h2>
+                <p style="max-width: 800px; margin: 0 auto 3rem auto;">
+                    Transitioning from remote piloting to semi-autonomous tracking. Incorporating MediaPipe BlazeFace and dlib for real-time facial recognition and PID servo tracking across 3 CPU cores.
+                </p>
+                <div style="display:inline-block; padding: 1rem 3rem; background: var(--accent); color: #fff; font-size: 1.5rem; font-weight: 600; border-radius: 3rem; box-shadow: 0 10px 20px var(--accent-glow);">
+                    Testing Phase Commencing
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+</body>
+</html>
