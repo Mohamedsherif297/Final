@@ -8,8 +8,8 @@ class Motor:
     def __init__(self):
         # L298N Pins (BCM numbering)
         self.LEFT_EN = 12
-        self.LEFT_IN1 = 23
-        self.LEFT_IN2 = 24
+        self.LEFT_IN1 = 24
+        self.LEFT_IN2 = 23
         
         self.RIGHT_EN = 13
         self.RIGHT_IN3 = 27
