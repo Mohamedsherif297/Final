@@ -333,9 +333,9 @@ function syncServoUI() {
 }
 
 function updateCrosshair() {
-  // Map -90…90 → 5%…95% of the circle
-  const x = ((state.pan  + 90) / 180) * 90 + 5;
-  const y = ((state.tilt + 90) / 180) * 90 + 5;
+  // Map 0…180 → 5%…95% of the circle
+  const x = (state.pan / 180) * 90 + 5;
+  const y = (state.tilt / 180) * 90 + 5;
   const dot = $('crosshairDot');
   dot.style.left = `${x}%`;
   dot.style.top  = `${y}%`;
@@ -353,7 +353,7 @@ $('tiltSlider').oninput = () => {
 
 // Center servo
 $('centerServoBtn').onclick = () => {
-  sendServo(0, 0);
+  sendServo(90, 90);
   log('Servo → centered', 'cmd');
 };
 
