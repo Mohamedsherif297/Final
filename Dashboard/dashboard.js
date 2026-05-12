@@ -15,8 +15,8 @@ const state = {
   mqttConnected: false,
   arrowMode: 'motor',   // 'motor' | 'servo'
   speed: 70,
-  pan: 0,
-  tilt: 0,
+  pan: 90,              // Center position (0-180 range)
+  tilt: 90,             // Center position (0-180 range)
   keysDown: new Set(),
   servoStep: 5,         // degrees per arrow press
   uptimeStart: null,
@@ -308,8 +308,9 @@ speedSlider.oninput = () => {
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
 function sendServo(pan, tilt) {
-  state.pan  = clamp(pan,  -90, 90);
-  state.tilt = clamp(tilt, -90, 90);
+  // Map 0-180 range (standard servo range)
+  state.pan  = clamp(pan,  0, 180);
+  state.tilt = clamp(tilt, 0, 180);
   send('dev/servo', { action: 'set_angle', pan: state.pan, tilt: state.tilt });
   syncServoUI();
 }
