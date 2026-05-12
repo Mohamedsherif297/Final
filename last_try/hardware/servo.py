@@ -37,14 +37,22 @@ class Servo:
             print("[Servo] Not initialized")
             return
         
+        import time
+        
         try:
             if pan is not None:
+                # Clamp to valid range
+                pan = max(0, min(180, int(pan)))
                 self.kit.servo[self.PAN_CHANNEL].angle = pan
                 print(f"[Servo] Pan: {pan}°")
+                time.sleep(0.05)
             
             if tilt is not None:
+                # Clamp to valid range
+                tilt = max(0, min(180, int(tilt)))
                 self.kit.servo[self.TILT_CHANNEL].angle = tilt
                 print(f"[Servo] Tilt: {tilt}°")
+                time.sleep(0.05)
                 
         except Exception as e:
             print(f"[Servo] Error setting angle: {e}")
