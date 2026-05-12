@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/surveillance-car/Raspi
+WorkingDirectory=/home/pi/surveillance-car
 Environment="WEBHOOK_SECRET=your-secret-key-here"
 ExecStart=/usr/bin/python3 /home/pi/surveillance-car/Raspi/deployment/webhook_listener.py
 Restart=always
