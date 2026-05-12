@@ -11,7 +11,7 @@ WS_PORT = 8765
 
 clients = set()
 
-async def handle_client(websocket, path):
+async def handle_client(websocket):
     client_addr = websocket.remote_address
     print(f"✅ Client connected: {client_addr}")
     clients.add(websocket)

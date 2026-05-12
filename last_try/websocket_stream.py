@@ -43,7 +43,7 @@ class WebSocketStreamer:
         print(f"[Camera] Initialized: {VIDEO_WIDTH}x{VIDEO_HEIGHT} @ {VIDEO_FPS}fps")
         return True
     
-    async def handle_client(self, websocket, path):
+    async def handle_client(self, websocket):
         """Handle new WebSocket client"""
         client_addr = websocket.remote_address
         print(f"[WebSocket] Client connected: {client_addr}")

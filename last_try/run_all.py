@@ -114,7 +114,7 @@ def handle_command(data):
         led.set_color(0, 255, 0)
 
 # ========== WebSocket Handlers ==========
-async def handle_ws_client(websocket, path):
+async def handle_ws_client(websocket):
     client_addr = websocket.remote_address
     print(f"[WebSocket] Client connected: {client_addr}")
     ws_clients.add(websocket)
