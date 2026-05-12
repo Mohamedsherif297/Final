@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/surveillance-car
-ExecStart=/usr/bin/python3 /home/pi/surveillance-car/deployment/git_auto_deploy.py --watch --interval 300
+WorkingDirectory=/home/pi/surveillance-car/Raspi
+ExecStart=/usr/bin/python3 /home/pi/surveillance-car/Raspi/deployment/git_auto_deploy.py --watch --interval 300
 Restart=always
 RestartSec=10
 StandardOutput=journal

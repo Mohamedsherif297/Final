@@ -14,7 +14,7 @@ import json
 import time
 
 # Configuration
-PROJECT_DIR = Path.home() / "surveillance-car"
+PROJECT_DIR = Path.home() / "surveillance-car" / "Raspi"
 GIT_BRANCH = "main"  # Change to your branch name
 LOG_FILE = PROJECT_DIR / "logs" / "git_deploy.log"
 SERVICE_NAME = "surveillance-car"  # Systemd service name if you create one

@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PROJECT_DIR="$HOME/surveillance-car"
-DEPLOYMENT_DIR="$PROJECT_DIR/deployment"
+DEPLOYMENT_DIR="$PROJECT_DIR/Raspi/deployment"
 
 # Check if running on Raspberry Pi
 if [ ! -f /proc/device-tree/model ] || ! grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then

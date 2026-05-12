@@ -14,8 +14,8 @@ import os
 
 # Configuration
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "your-secret-key-here")
-DEPLOY_SCRIPT = Path.home() / "surveillance-car" / "deployment" / "git_auto_deploy.py"
-LOG_FILE = Path.home() / "surveillance-car" / "logs" / "webhook.log"
+DEPLOY_SCRIPT = Path.home() / "surveillance-car" / "Raspi" / "deployment" / "git_auto_deploy.py"
+LOG_FILE = Path.home() / "surveillance-car" / "Raspi" / "logs" / "webhook.log"
 PORT = 8080
 
 # Setup logging
