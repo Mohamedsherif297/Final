@@ -141,7 +141,8 @@ async def broadcast_frame(frame_data):
     for client in ws_clients:
         try:
             await client.send(tagged_frame)
-        except:
+        except Exception as e:
+            print(f"[WebSocket] Error sending frame: {e}")
             disconnected.add(client)
     
     ws_clients -= disconnected
@@ -163,6 +164,8 @@ def camera_loop(loop):
     
     frame_interval = 1.0 / VIDEO_FPS
     next_frame_time = time.time()
+    frame_count = 0
+    last_log_time = time.time()
     
     while True:
         ret, frame = camera.read()
@@ -176,6 +179,15 @@ def camera_loop(loop):
         if ret:
             frame_data = buffer.tobytes()
             asyncio.run_coroutine_threadsafe(broadcast_frame(frame_data), loop)
+            frame_count += 1
+            
+            # Log stats every 5 seconds
+            now = time.time()
+            if now - last_log_time >= 5:
+                fps = frame_count / (now - last_log_time)
+                print(f"[Camera] {fps:.1f} fps | {len(ws_clients)} client(s) | {len(frame_data)} bytes/frame")
+                frame_count = 0
+                last_log_time = now
         
         next_frame_time += frame_interval
         sleep_time = next_frame_time - time.time()

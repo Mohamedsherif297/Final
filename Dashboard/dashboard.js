@@ -126,6 +126,7 @@ function onMessage(ev) {
 
     if (tag === 0x01) {
       // Video JPEG frame
+      console.log(`[Video] Received frame: ${view.length} bytes`);
       const blob = new Blob([view.slice(1)], { type: 'image/jpeg' });
       const url  = URL.createObjectURL(blob);
       const img  = new Image();
@@ -136,6 +137,9 @@ function onMessage(ev) {
         URL.revokeObjectURL(url);
         videoOverlay.classList.add('hidden');
         state.frameCount++;
+      };
+      img.onerror = () => {
+        console.error('[Video] Failed to load image');
       };
       img.src = url;
     }
