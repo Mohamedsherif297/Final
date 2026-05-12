@@ -383,21 +383,23 @@ function setArrowMode(mode) {
 // ══════════════════════════════════════════════════════════════
 // KEYBOARD INPUT  (Explicit WASD for motor, Arrows for servo)
 // ══════════════════════════════════════════════════════════════
+// KEYBOARD INPUT  (Explicit WASD for motor, Arrows for servo)
+// ══════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
   // Don't hijack input fields
   if (e.target.tagName === 'INPUT') return;
-  if (e.repeat) return;
 
   const key = e.key;
   let dir = null;
 
-  // 1. WASD Controls -> Motor
+  // 1. WASD Controls -> Motor (ignore repeats for motors)
   if (['w', 'W'].includes(key)) { dir = 'up'; }
   else if (['s', 'S'].includes(key)) { dir = 'down'; }
   else if (['a', 'A'].includes(key)) { dir = 'left'; }
   else if (['d', 'D'].includes(key)) { dir = 'right'; }
 
   if (dir) {
+    if (e.repeat) return; // Ignore repeats for motors
     state.keysDown.add(key);
     sendMotor(MOTOR_DIRS[dir]);
     // Only light up the UI if the Motor tab is selected
@@ -405,7 +407,7 @@ document.addEventListener('keydown', e => {
     return;
   }
 
-  // 2. Arrow Controls -> Servo
+  // 2. Arrow Controls -> Servo (allow repeats for continuous movement)
   if (key === 'ArrowUp') { dir = 'up'; }
   else if (key === 'ArrowDown') { dir = 'down'; }
   else if (key === 'ArrowLeft') { dir = 'left'; }
@@ -422,6 +424,7 @@ document.addEventListener('keydown', e => {
   }
 
   // 3. Speed Controls (Q to decrease, E to increase)
+  if (e.repeat) return; // Ignore repeats for speed controls
   if (['e', 'E'].includes(key)) {
     const newSpeed = Math.min(100, state.speed + 5);
     $('speedSlider').value = newSpeed;
