@@ -1,0 +1,15 @@
+# Surveillance Car Requirements
+# Install with: sudo pip3 install --break-system-packages -r requirements.txt
+
+# MQTT Communication
+paho-mqtt>=1.6.1
+
+# WebSocket Streaming
+websockets>=11.0
+
+# Camera & Video
+opencv-python>=4.8.0
+
+# Hardware Control
+RPi.GPIO>=0.7.1
+adafruit-circuitpython-servokit>=1.3.0
