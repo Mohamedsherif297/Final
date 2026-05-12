@@ -1,0 +1,16 @@
+[Unit]
+Description=Git Auto-Deploy Service for Surveillance Car
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/surveillance-car
+ExecStart=/usr/bin/python3 /home/pi/surveillance-car/deployment/git_auto_deploy.py --watch --interval 300
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

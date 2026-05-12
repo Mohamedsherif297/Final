@@ -1,0 +1,17 @@
+[Unit]
+Description=Git Webhook Listener for Surveillance Car
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/surveillance-car
+Environment="WEBHOOK_SECRET=your-secret-key-here"
+ExecStart=/usr/bin/python3 /home/pi/surveillance-car/deployment/webhook_listener.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
