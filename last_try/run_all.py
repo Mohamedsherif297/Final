@@ -11,6 +11,7 @@ import threading
 import websockets
 import cv2
 import json
+import queue
 sys.path.insert(0, 'hardware')
 
 import paho.mqtt.client as mqtt
@@ -42,6 +43,7 @@ ultrasonic = None
 
 # ========== WebSocket Clients ==========
 ws_clients = set()
+frame_queue = queue.Queue(maxsize=2)  # Limit queue size to prevent memory issues
 
 # ========== MQTT Handlers ==========
 def on_connect(client, userdata, flags, rc):
@@ -123,10 +125,11 @@ async def handle_ws_client(websocket):
         welcome = json.dumps({"event": "connected", "server": "surveillance-car"})
         await websocket.send(b'\x00' + welcome.encode())
         
+        # Keep connection alive
         async for message in websocket:
             pass  # Handle incoming if needed
-    except:
-        pass
+    except Exception as e:
+        print(f"[WebSocket] Client error: {e}")
     finally:
         ws_clients.discard(websocket)
         print(f"[WebSocket] Client disconnected: {client_addr}")
@@ -138,14 +141,36 @@ async def broadcast_frame(frame_data):
     tagged_frame = b'\x01' + frame_data
     disconnected = set()
     
-    for client in ws_clients:
+    # Send to all clients concurrently
+    for client in list(ws_clients):
         try:
             await client.send(tagged_frame)
         except Exception as e:
-            print(f"[WebSocket] Error sending frame: {e}")
+            print(f"[WebSocket] Send error: {e}")
             disconnected.add(client)
     
     ws_clients -= disconnected
+
+# Frame broadcaster task
+async def frame_broadcaster():
+    """Continuously broadcast frames from queue"""
+    print("[Broadcaster] Started")
+    while True:
+        try:
+            # Get frame from queue (non-blocking with timeout)
+            try:
+                frame_data = frame_queue.get(timeout=0.1)
+            except queue.Empty:
+                await asyncio.sleep(0.01)
+                continue
+            
+            # Broadcast to all clients
+            if ws_clients:
+                await broadcast_frame(frame_data)
+            
+        except Exception as e:
+            print(f"[Broadcaster] Error: {e}")
+            await asyncio.sleep(0.1)
 
 # ========== Camera Thread ==========
 def camera_loop(loop):
@@ -178,7 +203,12 @@ def camera_loop(loop):
         
         if ret:
             frame_data = buffer.tobytes()
-            asyncio.run_coroutine_threadsafe(broadcast_frame(frame_data), loop)
+            # Put frame in queue (drop if full)
+            try:
+                frame_queue.put_nowait(frame_data)
+            except queue.Full:
+                pass  # Drop frame if queue is full
+            
             frame_count += 1
             
             # Log stats every 5 seconds
@@ -237,6 +267,9 @@ async def main():
     loop = asyncio.get_running_loop()
     camera_thread = threading.Thread(target=camera_loop, args=(loop,), daemon=True)
     camera_thread.start()
+    
+    # Start frame broadcaster task
+    broadcaster_task = asyncio.create_task(frame_broadcaster())
     
     # Start WebSocket server
     print(f"\n[WebSocket] Starting server on ws://{WS_HOST}:{WS_PORT}")
