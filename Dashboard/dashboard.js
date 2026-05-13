@@ -63,7 +63,17 @@ function connect() {
   }
 
   // 2. Connect WebSocket for video streaming
-  let url = ip.startsWith('ws://') || ip.startsWith('wss://') ? ip : `ws://${ip}:8765`;
+  let url;
+  if (ip.startsWith('ws://') || ip.startsWith('wss://')) {
+    // Already has protocol
+    url = ip;
+  } else if (ip.includes('trycloudflare.com') || ip.includes('ngrok.io') || ip.includes(':')) {
+    // Cloudflare/Ngrok URL or already has port - don't add port
+    url = `ws://${ip}`;
+  } else {
+    // Local IP - add port
+    url = `ws://${ip}:8765`;
+  }
   log(`Connecting to WebSocket ${url}…`);
   setStatus('connecting');
 
