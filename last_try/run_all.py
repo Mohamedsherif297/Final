@@ -143,7 +143,7 @@ async def handle_ws_client(websocket):
 async def frame_broadcaster():
     """Continuously broadcast frames to all clients"""
     print("[Broadcaster] Started")
-    global frame_data_latest
+    global frame_data_latest, ws_clients
     
     while True:
         try:
