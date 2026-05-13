@@ -2,7 +2,7 @@
 
 ## 🚀 Start System
 ```bash
-cd /home/iot/IOT\ /Final/last_try
+cd ~/surveillance-car/last_try
 sudo ./start_ai_system.sh
 ```
 

@@ -122,7 +122,7 @@ MQTT/Dashboard → Emergency Flag → Stop All → Clear Queue
 
 ### 1. Pull Latest Code
 ```bash
-cd /home/iot/IOT\ /Final
+cd ~/surveillance-car
 git pull origin main
 ```
 
@@ -143,7 +143,7 @@ pip3 install face_recognition --break-system-packages
 
 ### 4. Run System
 ```bash
-cd /home/iot/IOT\ /Final/last_try
+cd ~/surveillance-car/last_try
 sudo ./start_ai_system.sh
 ```
 

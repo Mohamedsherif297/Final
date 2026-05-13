@@ -35,7 +35,7 @@ sudo apt-get install -y \
 
 ### 2. Install Python Dependencies
 ```bash
-cd /home/iot/IOT\ /Final/last_try
+cd ~/surveillance-car/last_try
 
 # Install MediaPipe (lightweight, optimized for Pi)
 pip3 install mediapipe --break-system-packages
@@ -86,7 +86,7 @@ sudo python3 main.py --display
 
 ### 5. Run Integrated System
 ```bash
-cd /home/iot/IOT\ /Final/last_try
+cd ~/surveillance-car/last_try
 
 # Run integrated system with AI
 sudo python3 run_all_integrated.py
