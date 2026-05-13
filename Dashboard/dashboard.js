@@ -14,7 +14,7 @@ const state = {
   connected: false,
   mqttConnected: false,
   arrowMode: 'motor',   // 'motor' | 'servo'
-  speed: 70,
+  speed: 50,            // Fixed speed (hidden from UI)
   pan: 90,              // Center position (0-180 range)
   tilt: 90,             // Center position (0-180 range)
   keysDown: new Set(),
@@ -29,6 +29,9 @@ const state = {
   aiAction: 'idle',
   aiFaceDetected: false,
   aiBodyDetected: false,
+  // Ultrasonic state
+  lastDistance: null,
+  emergencyStopActive: false,
 };
 
 // ── DOM refs ──────────────────────────────────────────────────
@@ -116,7 +119,22 @@ function connect() {
 }
 
 function disconnect() {
-  if (state.ws) { state.ws.close(); state.ws = null; }
+  if (state.ws) { 
+    state.ws.close(); 
+    state.ws = null; 
+  }
+  if (state.mqtt && state.mqttConnected) {
+    state.mqtt.disconnect();
+    state.mqtt = null;
+    state.mqttConnected = false;
+  }
+  state.connected = false;
+  setStatus('disconnected');
+  connectBtn.textContent = 'Connect';
+  videoOverlay.classList.remove('hidden');
+  log('Disconnected.', 'warn');
+  stopFpsCounter();
+  stopUptimeTick();
 }
 
 connectBtn.onclick = () => {
@@ -381,13 +399,6 @@ function stopMotor() {
   $('motorBadge').textContent = 'stop';
 }
 
-// ── Speed slider ──────────────────────────────────────────────
-const speedSlider = $('speedSlider');
-speedSlider.oninput = () => {
-  state.speed = +speedSlider.value;
-  $('speedVal').textContent = `${state.speed}%`;
-};
-
 // ══════════════════════════════════════════════════════════════
 // SERVO CONTROL
 // ══════════════════════════════════════════════════════════════
@@ -508,18 +519,6 @@ document.addEventListener('keydown', e => {
     if (state.arrowMode === 'servo') highlightDpad(dir, true);
     return;
   }
-
-  // 3. Speed Controls (Q to decrease, E to increase)
-  if (e.repeat) return; // Ignore repeats for speed controls
-  if (['e', 'E'].includes(key)) {
-    const newSpeed = Math.min(100, state.speed + 5);
-    $('speedSlider').value = newSpeed;
-    speedSlider.oninput(); // trigger the visual update
-  } else if (['q', 'Q'].includes(key)) {
-    const newSpeed = Math.max(0, state.speed - 5);
-    $('speedSlider').value = newSpeed;
-    speedSlider.oninput(); // trigger the visual update
-  }
 });
 
 document.addEventListener('keyup', e => {
@@ -587,52 +586,12 @@ $('btnStop').onclick = () => {
 };
 
 // ══════════════════════════════════════════════════════════════
-// LED CONTROL
-// ══════════════════════════════════════════════════════════════
-document.querySelectorAll('.led-preset').forEach(btn => {
-  btn.onclick = () => {
-    const color = btn.dataset.color;
-    send('dev/led', { action: 'set_color', color });
-    log(`LED → ${color}`, 'cmd');
-    updateLedPreview(btn.style.getPropertyValue('--c'));
-  };
-});
-
-document.querySelectorAll('.effect-btn').forEach(btn => {
-  if (btn.id === 'stopEffectBtn') return;
-  btn.onclick = () => {
-    const effect = btn.dataset.effect;
-    send('dev/led', { action: 'start_effect', effect });
-    log(`LED effect → ${effect}`, 'cmd');
-  };
-});
-
-$('stopEffectBtn').onclick = () => {
-  send('dev/led', { action: 'stop_effect' });
-  log('LED effect → stopped', 'cmd');
-};
-
-$('setRgbBtn').onclick = () => {
-  const r = +$('rSlider').value;
-  const g = +$('gSlider').value;
-  const b = +$('bSlider').value;
-  send('dev/led', { action: 'set_rgb', red: r, green: g, blue: b });
-  log(`LED RGB → rgb(${r},${g},${b})`, 'cmd');
-  updateLedPreview(`rgb(${r},${g},${b})`);
-};
-
-function updateLedPreview(color) {
-  const p = $('ledPreview');
-  p.style.background = color;
-  p.style.boxShadow  = `0 0 12px ${color}`;
-}
-
-// ══════════════════════════════════════════════════════════════
-// EMERGENCY
+// EMERGENCY & SENSORS
 // ══════════════════════════════════════════════════════════════
 $('emergencyBtn').onclick = () => {
   send('dev/commands', { command: 'emergency_stop' });
   log('⚠ EMERGENCY STOP sent!', 'error');
+  state.emergencyStopActive = true;
   $('emergencyBtn').classList.add('active');
   $('emergencyBadge').textContent = 'ACTIVE';
   $('emergencyBadge').className = 'status-badge badge-danger';
@@ -641,6 +600,7 @@ $('emergencyBtn').onclick = () => {
 $('resetEmergencyBtn').onclick = () => {
   send('dev/commands', { command: 'reset_emergency' });
   log('Emergency reset sent', 'ok');
+  state.emergencyStopActive = false;
   $('emergencyBtn').classList.remove('active');
   $('emergencyBadge').textContent = 'OK';
   $('emergencyBadge').className = 'status-badge badge-ok';
@@ -648,6 +608,7 @@ $('resetEmergencyBtn').onclick = () => {
 
 function handleEmergency(payload) {
   log(`⚠ Emergency: ${payload.trigger} — ${payload.message}`, 'error');
+  state.emergencyStopActive = true;
   $('emergencyBtn').classList.add('active');
   $('emergencyBadge').textContent = payload.trigger || 'ACTIVE';
   $('emergencyBadge').className = 'status-badge badge-danger';
@@ -657,10 +618,12 @@ function handleEmergency(payload) {
 // SENSORS
 // ══════════════════════════════════════════════════════════════
 const GAUGE_ARC_LEN = 173; // full semicircle stroke-dasharray
+const EMERGENCY_DISTANCE = 15; // cm - trigger emergency stop
 
 function updateDistance(dist) {
   if (dist == null) return;
   const cm = Math.round(dist);
+  state.lastDistance = cm;
   $('distanceVal').textContent = cm;
 
   // Gauge: 0 = empty (far), full = close (danger)
@@ -675,20 +638,36 @@ function updateDistance(dist) {
   else if (cm < 30)  { fill.style.stroke = '#fb923c'; }
   else if (cm < 60)  { fill.style.stroke = '#facc15'; }
   else               { fill.style.stroke = '#4ade80'; }
+  
+  // Emergency stop if too close
+  if (cm < EMERGENCY_DISTANCE && !state.emergencyStopActive) {
+    log(`⚠ OBSTACLE TOO CLOSE: ${cm}cm - Emergency stop!`, 'error');
+    send('dev/commands', { command: 'emergency_stop' });
+    state.emergencyStopActive = true;
+    $('emergencyBtn').classList.add('active');
+    $('emergencyBadge').textContent = 'OBSTACLE';
+    $('emergencyBadge').className = 'status-badge badge-danger';
+    
+    // Update obstacle badge
+    $('obstacleBadge').textContent = `${cm}cm`;
+    $('obstacleBadge').className = 'status-badge badge-danger';
+  } else if (cm >= EMERGENCY_DISTANCE && cm < 30) {
+    // Warning zone
+    $('obstacleBadge').textContent = `${cm}cm`;
+    $('obstacleBadge').className = 'status-badge badge-warn';
+  } else {
+    // Clear
+    $('obstacleBadge').textContent = 'Clear';
+    $('obstacleBadge').className = 'status-badge badge-ok';
+  }
 }
 
 function handleObstacle(dist) {
   const badge = $('obstacleBadge');
-  badge.textContent = `${Math.round(dist)}cm`;
+  const cm = Math.round(dist);
+  badge.textContent = `${cm}cm`;
   badge.className = 'status-badge badge-danger';
-  $('sensor-card')?.classList.add('obstacle-active');
-  log(`⚠ Obstacle at ${Math.round(dist)} cm!`, 'warn');
-
-  clearTimeout(handleObstacle._timer);
-  handleObstacle._timer = setTimeout(() => {
-    badge.textContent = 'Clear';
-    badge.className = 'status-badge badge-ok';
-  }, 3000);
+  log(`⚠ Obstacle at ${cm} cm!`, 'warn');
 }
 
 function updateStatusBadges(payload) {

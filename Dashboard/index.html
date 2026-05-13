@@ -173,15 +173,8 @@
           </div>
 
           <div class="mode-hint" id="modeHint">
-            <kbd>W A S D</kbd> Motor &nbsp;|&nbsp; <kbd>↑ ↓ ← →</kbd> Servo &nbsp;|&nbsp; <kbd>Q/E</kbd> Speed
+            <kbd>W A S D</kbd> Motor &nbsp;|&nbsp; <kbd>↑ ↓ ← →</kbd> Servo
           </div>
-        </div>
-
-        <!-- Speed Slider -->
-        <div class="slider-row">
-          <label class="slider-label">Speed</label>
-          <input type="range" id="speedSlider" min="0" max="100" value="70" class="slider" />
-          <span class="slider-val" id="speedVal">70%</span>
         </div>
       </div>
 
@@ -221,41 +214,6 @@
           <label class="slider-label">Tilt</label>
           <input type="range" id="tiltSlider" min="0" max="180" value="90" class="slider slider-servo" />
           <span class="slider-val" id="tiltVal">90°</span>
-        </div>
-      </div>
-
-      <!-- LED Control -->
-      <div class="card led-card">
-        <div class="card-header">
-          <span class="card-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            LED
-          </span>
-          <div class="led-preview" id="ledPreview"></div>
-        </div>
-
-        <div class="led-presets">
-          <button class="led-preset" data-color="idle" style="--c:#4fc3f7">Idle</button>
-          <button class="led-preset" data-color="moving" style="--c:#66bb6a">Moving</button>
-          <button class="led-preset" data-color="emergency" style="--c:#ef5350">Alert</button>
-          <button class="led-preset" data-color="off" style="--c:#333">Off</button>
-        </div>
-
-        <div class="led-effects">
-          <button class="effect-btn" data-effect="rainbow">🌈 Rainbow</button>
-          <button class="effect-btn" data-effect="blink">✦ Blink</button>
-          <button class="effect-btn" data-effect="pulse">◉ Pulse</button>
-          <button class="effect-btn stop-effect" id="stopEffectBtn">■ Stop</button>
-        </div>
-
-        <div class="rgb-row">
-          <label class="slider-label">R</label>
-          <input type="range" id="rSlider" min="0" max="255" value="0" class="slider slider-r" />
-          <label class="slider-label ml">G</label>
-          <input type="range" id="gSlider" min="0" max="255" value="80" class="slider slider-g" />
-          <label class="slider-label ml">B</label>
-          <input type="range" id="bSlider" min="0" max="255" value="255" class="slider slider-b" />
-          <button id="setRgbBtn" class="btn btn-outline btn-sm">Set</button>
         </div>
       </div>
 
