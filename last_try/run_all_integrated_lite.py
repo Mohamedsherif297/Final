@@ -249,6 +249,7 @@ async def frame_broadcaster():
 async def ai_status_broadcaster():
     """Broadcast AI status to dashboard"""
     print("[AI Status] Broadcaster started")
+    global ws_clients
     
     while True:
         try:
