@@ -45,6 +45,10 @@ ws_clients = set()
 frame_data_latest = None  # Store latest frame
 frame_lock = threading.Lock()
 
+# ========== Ultrasonic Data ==========
+ultrasonic_distance = None
+ultrasonic_lock = threading.Lock()
+
 # ========== MQTT Handlers ==========
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -143,7 +147,7 @@ async def handle_ws_client(websocket):
 async def frame_broadcaster():
     """Continuously broadcast frames to all clients"""
     print("[Broadcaster] Started")
-    global frame_data_latest, ws_clients
+    global frame_data_latest, ws_clients, ultrasonic_distance
     
     while True:
         try:
@@ -171,6 +175,26 @@ async def frame_broadcaster():
                     disconnected.add(client)
             
             ws_clients -= disconnected
+            
+            # Send ultrasonic data if available (every 10th frame = ~2Hz)
+            if frame_data_latest and len(ws_clients) > 0:
+                with ultrasonic_lock:
+                    distance = ultrasonic_distance
+                
+                if distance is not None:
+                    ultrasonic_msg = json.dumps({
+                        "event": "mqtt",
+                        "topic": "sensors/ultrasonic",
+                        "payload": json.dumps({"distance": distance})
+                    })
+                    
+                    tagged_ultrasonic = b'\x00' + ultrasonic_msg.encode()
+                    
+                    for client in list(ws_clients):
+                        try:
+                            await client.send(tagged_ultrasonic)
+                        except Exception:
+                            pass
             
         except Exception as e:
             print(f"[Broadcaster] Error: {e}")
@@ -229,6 +253,27 @@ def camera_loop():
         else:
             next_frame_time = time.time()
 
+# ========== Ultrasonic Thread ==========
+def ultrasonic_loop():
+    """Read ultrasonic sensor periodically"""
+    global ultrasonic_distance
+    
+    print("[Ultrasonic] Reading loop started")
+    
+    while True:
+        try:
+            distance = ultrasonic.get_distance()
+            
+            if distance is not None:
+                with ultrasonic_lock:
+                    ultrasonic_distance = distance
+            
+            time.sleep(0.1)  # Read at 10 Hz
+            
+        except Exception as e:
+            print(f"[Ultrasonic] Error: {e}")
+            time.sleep(0.5)
+
 # ========== Main ==========
 async def main():
     global motor, servo, led, ultrasonic
@@ -269,6 +314,10 @@ async def main():
     # Start camera thread
     camera_thread = threading.Thread(target=camera_loop, daemon=True)
     camera_thread.start()
+    
+    # Start ultrasonic thread
+    ultrasonic_thread = threading.Thread(target=ultrasonic_loop, daemon=True)
+    ultrasonic_thread.start()
     
     # Start frame broadcaster task
     broadcaster_task = asyncio.create_task(frame_broadcaster())
