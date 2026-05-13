@@ -1,0 +1,4 @@
+opencv-python-headless
+mediapipe
+face_recognition
+RPi.GPIO

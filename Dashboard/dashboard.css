@@ -768,6 +768,86 @@ body::before {
 .badge-ok { border-color: rgba(74,222,128,0.3); color: var(--green); background: rgba(74,222,128,0.07); }
 .badge-warn { border-color: rgba(251,146,60,0.3); color: var(--orange); background: rgba(251,146,60,0.07); }
 .badge-danger { border-color: rgba(248,113,113,0.4); color: var(--red); background: rgba(248,113,113,0.1); }
+.badge-ai { border-color: rgba(167,139,250,0.4); color: var(--purple); background: rgba(167,139,250,0.1); }
+
+/* ── AI Mode Card ─────────────────────────────────────────── */
+.ai-card { padding-bottom: 16px; }
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.mode-switch-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--bg3);
+  border: 1px solid var(--border-h);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-switch-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mode-switch-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mode-switch-btn.active {
+  background: rgba(56,189,248,0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 16px rgba(56,189,248,0.2);
+}
+
+.ai-status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 16px 12px;
+}
+
+.ai-status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-status-label {
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detection-indicators {
+  display: flex;
+  gap: 6px;
+}
+
+.detection-indicator {
+  font-size: 16px;
+  opacity: 0.3;
+  transition: opacity 0.3s;
+}
+
+.detection-indicator.active {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px currentColor);
+}
 
 /* ── Obstacle Flash ───────────────────────────────────────── */
 @keyframes obstacle-flash {

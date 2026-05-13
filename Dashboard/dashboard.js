@@ -22,6 +22,13 @@ const state = {
   uptimeStart: null,
   frameCount: 0,
   fpsTimer: null,
+  // AI state
+  controlMode: 'manual', // 'manual' | 'ai_follow'
+  aiTracking: null,
+  aiConfidence: 0,
+  aiAction: 'idle',
+  aiFaceDetected: false,
+  aiBodyDetected: false,
 };
 
 // ── DOM refs ──────────────────────────────────────────────────
@@ -173,6 +180,23 @@ function onMessage(ev) {
 function handleJson(msg) {
   if (msg.event === 'connected') {
     log(`Server: ${msg.server || 'surveillance-car'}`, 'ok');
+    if (msg.mode) {
+      state.controlMode = msg.mode;
+      updateModeUI();
+    }
+    return;
+  }
+
+  // AI status updates
+  if (msg.event === 'ai_status') {
+    state.controlMode = msg.mode || 'manual';
+    state.aiTracking = msg.tracking;
+    state.aiConfidence = msg.confidence || 0;
+    state.aiAction = msg.action || 'idle';
+    state.aiFaceDetected = msg.face_detected || false;
+    state.aiBodyDetected = msg.body_detected || false;
+    updateAIStatus();
+    updateModeUI();
     return;
   }
 
@@ -291,6 +315,54 @@ function startUptimeTick() {
 function stopUptimeTick() {
   clearInterval(_uptimeTick);
   uptimeBadge.textContent = 'Uptime: --';
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODE SWITCHING (AI / MANUAL)
+// ══════════════════════════════════════════════════════════════
+function setControlMode(mode) {
+  send('dev/mode', { mode });
+  log(`Control mode → ${mode}`, 'cmd');
+  state.controlMode = mode;
+  updateModeUI();
+}
+
+$('modeManualBtn').onclick = () => setControlMode('manual');
+$('modeAIBtn').onclick = () => setControlMode('ai_follow');
+
+function updateModeUI() {
+  const isManual = state.controlMode === 'manual';
+  const isAI = state.controlMode === 'ai_follow';
+  
+  $('modeManualBtn').classList.toggle('active', isManual);
+  $('modeAIBtn').classList.toggle('active', isAI);
+  
+  $('modeBadge').textContent = isAI ? 'AI FOLLOW' : 'MANUAL';
+  $('modeBadge').className = `status-badge ${isAI ? 'badge-ai' : 'badge-ok'}`;
+}
+
+function updateAIStatus() {
+  const tracking = state.aiTracking;
+  const confidence = state.aiConfidence;
+  const action = state.aiAction;
+  const faceDetected = state.aiFaceDetected;
+  const bodyDetected = state.aiBodyDetected;
+  
+  if (tracking) {
+    $('aiTrackingBadge').textContent = tracking;
+    $('aiTrackingBadge').className = 'status-badge badge-ai';
+    $('aiConfidenceBadge').textContent = `${(confidence * 100).toFixed(0)}%`;
+    $('aiActionBadge').textContent = action;
+  } else {
+    $('aiTrackingBadge').textContent = 'None';
+    $('aiTrackingBadge').className = 'status-badge';
+    $('aiConfidenceBadge').textContent = '--';
+    $('aiActionBadge').textContent = 'idle';
+  }
+  
+  // Detection indicators
+  $('aiFaceIndicator').classList.toggle('active', faceDetected);
+  $('aiBodyIndicator').classList.toggle('active', bodyDetected);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -653,3 +725,5 @@ function updateStatusBadges(payload) {
 syncServoUI();
 updateDistance(null);
 setArrowMode('motor');
+updateModeUI();
+updateAIStatus();

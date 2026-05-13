@@ -90,6 +90,50 @@
     <!-- RIGHT COLUMN: CONTROLS -->
     <section class="col-right">
 
+      <!-- AI Mode Control -->
+      <div class="card ai-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            Control Mode
+          </span>
+          <span class="status-badge badge-ok" id="modeBadge">MANUAL</span>
+        </div>
+
+        <div class="mode-switch">
+          <button class="mode-switch-btn active" id="modeManualBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            Manual Control
+          </button>
+          <button class="mode-switch-btn" id="modeAIBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/></svg>
+            AI Follow
+          </button>
+        </div>
+
+        <div class="ai-status-grid">
+          <div class="ai-status-item">
+            <span class="ai-status-label">Tracking</span>
+            <span class="status-badge" id="aiTrackingBadge">None</span>
+          </div>
+          <div class="ai-status-item">
+            <span class="ai-status-label">Confidence</span>
+            <span class="status-badge" id="aiConfidenceBadge">--</span>
+          </div>
+          <div class="ai-status-item">
+            <span class="ai-status-label">Action</span>
+            <span class="status-badge" id="aiActionBadge">idle</span>
+          </div>
+          <div class="ai-status-item">
+            <span class="ai-status-label">Detection</span>
+            <div class="detection-indicators">
+              <span class="detection-indicator" id="aiFaceIndicator" title="Face">👤</span>
+              <span class="detection-indicator" id="aiBodyIndicator" title="Body">🚶</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Movement Control -->
       <div class="card control-card">
         <div class="card-header">
