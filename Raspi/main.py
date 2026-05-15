@@ -268,8 +268,18 @@ class SurveillanceCarSystem:
 def main():
     """Application entry point"""
     # Configuration - can be loaded from config file or environment variables
-    BROKER_HOST = "localhost"  # Change to your MQTT broker IP
+    # Option 1: Local broker (same network only)
+    # BROKER_HOST = "localhost"
+    # BROKER_PORT = 1883
+    
+    # Option 2: HiveMQ Cloud (WAN access - works from anywhere)
+    BROKER_HOST = "broker.hivemq.com"  # Free HiveMQ public broker
     BROKER_PORT = 1883
+    
+    # Option 3: Your ESP IP (if ESP is running MQTT broker)
+    # BROKER_HOST = "YOUR_ESP_IP"  # e.g., "192.168.1.150"
+    # BROKER_PORT = 1883
+    
     ENABLE_WEBSOCKET = True    # Set to False to disable WebSocket streaming
     
     # Print startup banner

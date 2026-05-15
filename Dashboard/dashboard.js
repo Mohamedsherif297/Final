@@ -223,8 +223,10 @@ function handleJson(msg) {
     let   payload;
     try { payload = JSON.parse(msg.payload); } catch (_) { payload = msg.payload; }
 
-    if (topic === 'sensors/ultrasonic') {
-      updateDistance(payload.distance);
+    if (topic === 'sensors/ultrasonic' || topic === 'dev/ultrasonic') {
+      // Support both topic formats
+      const distance = typeof payload === 'object' ? payload.distance : parseFloat(payload);
+      updateDistance(distance);
     } else if (topic === 'sensors/obstacle') {
       handleObstacle(payload.distance);
     } else if (topic === 'emergency/alert') {
@@ -276,6 +278,7 @@ function connectMqtt() {
       state.mqttConnected = true;
       log('Connected to HiveMQ Cloud (Commands Active)', 'ok');
       state.mqtt.subscribe('dev/status');
+      state.mqtt.subscribe('dev/ultrasonic');
       state.mqtt.subscribe('sensors/#');
       state.mqtt.subscribe('emergency/alert');
     },
@@ -290,7 +293,9 @@ function connectMqtt() {
 
 // ── Send command ──────────────────────────────────────────────
 function send(topic, payload) {
-  const payloadStr = JSON.stringify(payload);
+  // For motor commands (simple strings), send as-is
+  // For servo/LED commands (objects), send as JSON
+  const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
 
   if (state.mqttConnected && state.mqtt) {
     // Primary: Send via HiveMQ Cloud MQTT (WAN)
@@ -389,13 +394,14 @@ function updateAIStatus() {
 const MOTOR_DIRS = { up: 'forward', down: 'backward', left: 'left', right: 'right' };
 
 function sendMotor(direction) {
-  send('dev/motor', { direction, speed: state.speed });
+  // ESP32 expects simple string commands
+  send('dev/motor', direction);
   log(`Motor → ${direction} @ ${state.speed}%`, 'cmd');
   $('motorBadge').textContent = direction;
 }
 
 function stopMotor() {
-  send('dev/motor', { direction: 'stop' });
+  send('dev/motor', 'stop');
   $('motorBadge').textContent = 'stop';
 }
 
@@ -408,7 +414,8 @@ function sendServo(pan, tilt) {
   // Map 0-180 range (standard servo range)
   state.pan  = clamp(pan,  0, 180);
   state.tilt = clamp(tilt, 0, 180);
-  send('dev/servo', { action: 'set_angle', pan: state.pan, tilt: state.tilt });
+  // ESP32 expects simple JSON with pan/tilt
+  send('dev/servo', { pan: state.pan, tilt: state.tilt });
   syncServoUI();
 }
 
