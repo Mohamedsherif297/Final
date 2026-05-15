@@ -1,0 +1,99 @@
+# ============================================================
+# Git Ignore - Raspberry Pi Space Optimization
+# ============================================================
+
+# ============================================================
+# SYSTEM FILES (Not needed on Pi)
+# ============================================================
+.DS_Store
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# ============================================================
+# DOCUMENTATION (Not needed on Pi - keep on laptop only)
+# ============================================================
+# Root level documentation
+/ALL_FIXES_SUMMARY.md
+/CTRL_C_FIX.md
+/DASHBOARD_DISCOVERY.md
+/ESP32_IMPLEMENTATION_OVERVIEW.md
+/ESP32_README.md
+/FIXES_APPLIED.md
+/GIT_DEPLOYMENT_SUMMARY.md
+/PROJECT_STATUS.md
+/QUICK_FIX_SUMMARY.md
+/RASPBERRY_PI_MASTER_GUIDE.md
+/SUGGESTIONS_AND_NEXT_STEPS.md
+/TESTING_GUIDE.md
+/presentation.html
+/project_analysis.html
+
+# Docs folder (not needed on Pi)
+/Docs/
+
+# ============================================================
+# LAPTOP CONTROLLER (Not needed on Pi)
+# ============================================================
+/Laptop/
+/Dashboard/
+
+# ============================================================
+# ESP32 FILES (Not needed on Pi - ESP32 is separate)
+# ============================================================
+/ESP32/
+
+# ============================================================
+# OLD/BACKUP FILES (Not needed on Pi)
+# ============================================================
+/Raspi/
+*.zip
+*.tar.gz
+*.bak
+*.old
+
+# ============================================================
+# DEVELOPMENT/TESTING (Not needed on Pi)
+# ============================================================
+/transfer_test_to_pi.sh
+/ToDO
+
+# ============================================================
+# LOGS (Generated at runtime)
+# ============================================================
+/Raspi/logs/*.log
+/Raspi/logs/*.txt
+*.log
+
+# ============================================================
+# TEMPORARY FILES
+# ============================================================
+*.tmp
+*.temp
+.cache/
+.pytest_cache/
+
+# ============================================================
+# AI MODELS (Large files - download separately on Pi)
+# ============================================================
+/Raspi/AI/models/*.tflite
+/Raspi/AI/models/*.onnx
+/Raspi/AI/models/*.pb
+/Raspi/AI/dataset/encodings.pkl
+
+# ============================================================
+# KEEP THESE ON PI:
+# ============================================================
+# /last_try/           ✅ Main application
+# /last_try/hardware/  ✅ Hardware drivers
+# /last_try/pi_minimal/✅ AI system
+# .git/                ✅ For git pull updates
+# .gitignore           ✅ Git rules
