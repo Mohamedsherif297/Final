@@ -26,7 +26,7 @@ DEADZONE_PX = 80
 CLOSE_AREA = 0.25
 NO_FACE_TIMEOUT_S = 2.0
 RECOG_TOLERANCE = 0.4  # Lower = stricter (0.4 = 75% confidence)
-MIN_CONFIDENCE_TO_ACT = 0.75  # Only act if confidence >= 75%
+MIN_CONFIDENCE_TO_ACT = 0.50  # Only act if confidence >= 50%
 KNOWN_FACES_DIR = "pi_minimal/known_faces/images"
 PROCESS_EVERY_N_FRAMES = 2  # Process every 2nd frame for speed
 
