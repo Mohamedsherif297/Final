@@ -399,6 +399,8 @@ def ultrasonic_loop():
     
     print("[Ultrasonic] Reading loop started")
     
+    EMERGENCY_DISTANCE_CM = 15  # Trigger emergency stop if closer than 15cm
+    
     while not system_state.shutdown.is_set():
         try:
             distance = ultrasonic.get_distance()
@@ -406,6 +408,12 @@ def ultrasonic_loop():
             if distance is not None:
                 with ultrasonic_lock:
                     ultrasonic_distance = distance
+                
+                # Auto emergency stop if too close
+                if distance < EMERGENCY_DISTANCE_CM and not system_state.emergency_stop.is_set():
+                    print(f"[Ultrasonic] ⚠️ OBSTACLE TOO CLOSE: {distance:.1f}cm - Emergency stop!")
+                    system_state.trigger_emergency_stop()
+                    motor.stop()
             
             time.sleep(0.1)  # Read at 10 Hz
             

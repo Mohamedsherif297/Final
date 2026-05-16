@@ -25,7 +25,8 @@ FRAME_HEIGHT = 480
 DEADZONE_PX = 80
 CLOSE_AREA = 0.25
 NO_FACE_TIMEOUT_S = 2.0
-RECOG_TOLERANCE = 0.6
+RECOG_TOLERANCE = 0.4  # Lower = stricter (0.4 = 75% confidence)
+MIN_CONFIDENCE_TO_ACT = 0.75  # Only act if confidence >= 75%
 KNOWN_FACES_DIR = "pi_minimal/known_faces/images"
 PROCESS_EVERY_N_FRAMES = 2  # Process every 2nd frame for speed
 
@@ -188,6 +189,21 @@ class AIController:
                     
                     # Process best match
                     if best_match and best_location:
+                        # Calculate confidence (1.0 - distance)
+                        confidence = 1.0 - best_distance if best_distance is not None else 0.5
+                        
+                        # Only act if confidence is high enough
+                        if confidence < MIN_CONFIDENCE_TO_ACT:
+                            print(f"[AI] Low confidence ({confidence:.2f}) - ignoring")
+                            self.state.update_ai_status(
+                                tracking=best_match,
+                                confidence=confidence,
+                                action="low_confidence",
+                                face_detected=True,
+                                body_detected=False
+                            )
+                            continue
+                        
                         self.last_face_seen = time.time()
                         self.tracking_name = best_match
                         
@@ -209,7 +225,6 @@ class AIController:
                         self.state.send_motor_command(action, self.speed, source="ai")
                         
                         # Update status
-                        confidence = 1.0 - best_distance if best_distance is not None else 0.5
                         self.state.update_ai_status(
                             tracking=best_match,
                             confidence=confidence,
