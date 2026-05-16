@@ -210,23 +210,32 @@
         <!-- Hand Gesture Tab Content -->
         <div class="tab-content" id="contentGesture" style="display: none;">
           <div style="padding: 16px;">
-            <div id="gestureWebcam" style="position: relative; background: #1a202c; border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
-              <video id="gestureVideo" width="100%" height="300" style="display: block; background: #000;"></video>
-              <canvas id="gestureCanvas" width="640" height="480" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
-              <div id="gestureOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); color: white;">
-                <div style="text-align: center;">
-                  <p style="font-size: 18px; margin-bottom: 12px;">📷 Webcam Not Started</p>
-                  <button id="startGestureBtn" class="btn btn-primary">Start Hand Gesture Control</button>
-                </div>
-              </div>
+            <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+              <p style="font-weight: 600; color: #856404; margin-bottom: 8px;">⚠️ Hand Gesture Control Setup:</p>
+              <ol style="margin-left: 20px; line-height: 1.8; color: #856404; font-size: 14px;">
+                <li>Make sure Pi is in <strong>MANUAL mode</strong></li>
+                <li>Open Terminal and run:
+                  <pre style="background: #000; color: #0f0; padding: 8px; border-radius: 4px; margin: 8px 0; font-size: 12px;">cd Dashboard/HandGestures_AI_Driven
+pip3 install -r requirements.txt
+python3 gesture_controller.py</pre>
+                </li>
+                <li>Show your hands to the webcam</li>
+                <li>Watch the event log below for gesture commands</li>
+              </ol>
             </div>
-            <div style="background: #f7fafc; padding: 16px; border-radius: 8px; font-size: 13px; color: #4a5568;">
+            
+            <div style="background: #f7fafc; padding: 16px; border-radius: 8px; font-size: 13px; color: #4a5568; margin-bottom: 16px;">
               <p style="font-weight: 600; margin-bottom: 8px;">✋ How to use:</p>
               <ul style="margin-left: 20px; line-height: 1.8;">
                 <li><strong>Left hand</strong> (fist + thumb): UP=forward, DOWN=backward, LEFT/RIGHT=turn</li>
                 <li><strong>Right hand</strong> (fist + thumb): UP/DOWN=tilt, LEFT/RIGHT=pan</li>
-                <li>Make sure Pi is in <strong>MANUAL mode</strong></li>
+                <li>Commands will appear in the Event Log when gesture script is running</li>
               </ul>
+            </div>
+
+            <div id="gestureStatus" style="padding: 12px; background: #e2e8f0; border-radius: 8px; text-align: center; font-size: 14px; color: #4a5568;">
+              <span id="gestureStatusText">🔴 Gesture Controller Not Running</span>
+              <p style="font-size: 12px; margin-top: 4px; color: #718096;">Run the Python script to start</p>
             </div>
           </div>
         </div>
@@ -412,23 +421,34 @@
 
     // Hand Gesture Control (simplified - shows webcam)
     let gestureStream = null;
-    const startGestureBtn = document.getElementById('startGestureBtn');
-    const gestureVideo = document.getElementById('gestureVideo');
-    const gestureOverlay = document.getElementById('gestureOverlay');
+    let gestureActive = false;
+    let gestureTimeout = null;
+    const gestureStatusText = document.getElementById('gestureStatusText');
+    const gestureStatus = document.getElementById('gestureStatus');
 
-    startGestureBtn.onclick = async () => {
-      try {
-        gestureStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { width: 640, height: 480 } 
-        });
-        gestureVideo.srcObject = gestureStream;
-        gestureVideo.play();
-        gestureOverlay.style.display = 'none';
+    // Listen for gesture status messages
+    state.mqtt.onMessageArrived = (message) => {
+      handleJson({ 
+        event: 'mqtt', 
+        topic: message.destinationName, 
+        payload: message.payloadString 
+      });
+
+      // Check if gesture controller is active
+      if (message.destinationName === 'dev/gesture_status') {
+        gestureActive = true;
+        gestureStatusText.textContent = '🟢 Gesture Controller Active';
+        gestureStatus.style.background = '#d4edda';
+        gestureStatus.style.color = '#155724';
         
-        // Show message
-        alert('Hand gesture webcam started!\\n\\nNote: For full hand gesture recognition with MediaPipe, run:\\npython3 HandGestures_AI_Driven/gesture_controller.py\\n\\nThis webcam view is for monitoring only.');
-      } catch (err) {
-        alert('Could not access webcam: ' + err.message);
+        // Reset timeout
+        clearTimeout(gestureTimeout);
+        gestureTimeout = setTimeout(() => {
+          gestureActive = false;
+          gestureStatusText.textContent = '🔴 Gesture Controller Not Running';
+          gestureStatus.style.background = '#e2e8f0';
+          gestureStatus.style.color = '#4a5568';
+        }, 3000);  // 3 seconds timeout
       }
     };
   </script>

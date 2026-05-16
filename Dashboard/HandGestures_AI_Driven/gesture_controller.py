@@ -26,6 +26,7 @@ MQTT_USER   = "mohamed"
 MQTT_PASS   = "P@ssw0rd"
 TOPIC_MOTOR = "dev/motor"
 TOPIC_SERVO = "dev/servo"
+TOPIC_STATUS = "dev/gesture_status"  # NEW: Publish gesture status
 
 # ── Model ─────────────────────────────────────────────────────────────────────
 MODEL_PATH  = os.path.join(os.path.dirname(__file__), "hand_landmarker.task")
@@ -194,8 +195,12 @@ class MQTTController:
         if cmd == self._last_motor:
             return
         if self.connected:
-            self._client.publish(TOPIC_MOTOR, cmd, qos=1)
+            payload = json.dumps({"direction": cmd, "speed": 70})  # Match Pi format
+            self._client.publish(TOPIC_MOTOR, payload, qos=1)
             print(f"[MOTOR] -> {cmd}")
+            # Publish status for dashboard
+            status = json.dumps({"type": "gesture_motor", "command": cmd})
+            self._client.publish(TOPIC_STATUS, status, qos=0)
         self._last_motor = cmd
 
     def send_servo(self, pan, tilt):
@@ -203,6 +208,9 @@ class MQTTController:
             payload = json.dumps({"pan": int(pan), "tilt": int(tilt)})
             self._client.publish(TOPIC_SERVO, payload, qos=1)
             print(f"[SERVO] -> pan={pan}  tilt={tilt}")
+            # Publish status for dashboard
+            status = json.dumps({"type": "gesture_servo", "pan": int(pan), "tilt": int(tilt)})
+            self._client.publish(TOPIC_STATUS, status, qos=0)
 
     def shutdown(self):
         self._client.loop_stop()

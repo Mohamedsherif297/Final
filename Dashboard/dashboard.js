@@ -233,6 +233,13 @@ function handleJson(msg) {
       handleEmergency(payload);
     } else if (topic === 'dev/status') {
       updateStatusBadges(payload);
+    } else if (topic === 'dev/gesture_status') {
+      // NEW: Log gesture commands
+      if (payload.type === 'gesture_motor') {
+        log(`✋ Hand Gesture → Motor: ${payload.command}`, 'cmd');
+      } else if (payload.type === 'gesture_servo') {
+        log(`✋ Hand Gesture → Servo: pan=${payload.pan}° tilt=${payload.tilt}°`, 'cmd');
+      }
     }
   }
 }
@@ -281,6 +288,7 @@ function connectMqtt() {
       state.mqtt.subscribe('dev/ultrasonic');
       state.mqtt.subscribe('sensors/#');
       state.mqtt.subscribe('emergency/alert');
+      state.mqtt.subscribe('dev/gesture_status');  // NEW: Subscribe to gesture status
     },
     onFailure: (message) => {
       state.mqttConnected = false;
@@ -344,6 +352,10 @@ function stopUptimeTick() {
 // MODE SWITCHING (AI / MANUAL)
 // ══════════════════════════════════════════════════════════════
 function setControlMode(mode) {
+  // Stop motors before switching
+  send('dev/motor', { direction: 'stop', speed: 0 });
+  log(`Stopping motors before mode switch`, 'cmd');
+  
   send('dev/mode', { mode });
   log(`Control mode → ${mode}`, 'cmd');
   state.controlMode = mode;
