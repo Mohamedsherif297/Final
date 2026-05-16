@@ -124,10 +124,14 @@ class LED:
     
     def all_lights_off(self):
         """Turn off all lights"""
-        GPIO.output(self.LEFT_FORWARD, GPIO.LOW)
-        GPIO.output(self.RIGHT_FORWARD, GPIO.LOW)
-        GPIO.output(self.BACK_LIGHT, GPIO.LOW)
-        print("[LED] All lights OFF")
+        try:
+            GPIO.output(self.LEFT_FORWARD, GPIO.LOW)
+            GPIO.output(self.RIGHT_FORWARD, GPIO.LOW)
+            GPIO.output(self.BACK_LIGHT, GPIO.LOW)
+            print("[LED] All lights OFF")
+        except RuntimeError:
+            # GPIO already cleaned up
+            pass
     
     def blink_forward(self, times=3, interval=0.2):
         """Blink forward lights"""
@@ -178,7 +182,11 @@ class LED:
         self.buzzer_stop.set()
         if self.buzzer_thread:
             self.buzzer_thread.join(timeout=1.0)
-        GPIO.output(self.BUZZER, GPIO.LOW)
+        try:
+            GPIO.output(self.BUZZER, GPIO.LOW)
+        except RuntimeError:
+            # GPIO already cleaned up
+            pass
         print("[Buzzer] Alarm stopped")
     
     def _buzzer_alarm_loop(self):

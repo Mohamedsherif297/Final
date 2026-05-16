@@ -525,4 +525,11 @@ if __name__ == "__main__":
             servo.cleanup()
         if led:
             led.cleanup()
+        # Final GPIO cleanup
+        try:
+            import RPi.GPIO as GPIO
+            GPIO.cleanup()
+            print("[System] GPIO cleanup complete")
+        except:
+            pass
         print("[System] Shutdown complete")

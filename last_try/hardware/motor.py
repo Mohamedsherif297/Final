@@ -95,7 +95,9 @@ class Motor:
     def cleanup(self):
         """Cleanup GPIO"""
         self.stop()
-        self.left_pwm.stop()
-        self.right_pwm.stop()
-        GPIO.cleanup()
+        if self.left_pwm:
+            self.left_pwm.stop()
+        if self.right_pwm:
+            self.right_pwm.stop()
+        # Don't call GPIO.cleanup() - let main script handle it
         print("[Motor] Cleanup done")
