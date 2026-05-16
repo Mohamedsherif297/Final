@@ -142,10 +142,12 @@ def handle_command(data):
     elif command == "emergency_stop":
         system_state.trigger_emergency_stop()
         motor.stop()
-        led.set_color(255, 0, 0)  # Red
+        led.set_color(255, 0, 0)  # Red = back light
+        led.buzzer_alarm()  # Start alarm
     elif command == "reset_emergency":
         system_state.reset_emergency_stop()
-        led.set_color(0, 255, 0)  # Green
+        led.set_color(0, 255, 0)  # Green = forward lights
+        led.buzzer_stop_alarm()  # Stop alarm
 
 # ========== Motor Command Processor ==========
 def motor_command_processor():
@@ -414,6 +416,7 @@ def ultrasonic_loop():
                     print(f"[Ultrasonic] ⚠️ OBSTACLE TOO CLOSE: {distance:.1f}cm - Emergency stop!")
                     system_state.trigger_emergency_stop()
                     motor.stop()
+                    led.buzzer_beep_pattern(times=3, duration=0.1, interval=0.1)  # Warning beeps
             
             time.sleep(0.1)  # Read at 10 Hz
             
