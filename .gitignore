@@ -44,7 +44,6 @@ build/
 # LAPTOP CONTROLLER (Not needed on Pi)
 # ============================================================
 /Laptop/
-/Dashboard/
 
 # ============================================================
 # ESP32 FILES (Not needed on Pi - ESP32 is separate)

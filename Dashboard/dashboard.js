@@ -394,14 +394,14 @@ function updateAIStatus() {
 const MOTOR_DIRS = { up: 'forward', down: 'backward', left: 'left', right: 'right' };
 
 function sendMotor(direction) {
-  // ESP32 expects simple string commands
-  send('dev/motor', direction);
+  // Raspberry Pi expects JSON with direction and speed
+  send('dev/motor', { direction: direction, speed: state.speed });
   log(`Motor → ${direction} @ ${state.speed}%`, 'cmd');
   $('motorBadge').textContent = direction;
 }
 
 function stopMotor() {
-  send('dev/motor', 'stop');
+  send('dev/motor', { direction: 'stop', speed: 0 });
   $('motorBadge').textContent = 'stop';
 }
 
