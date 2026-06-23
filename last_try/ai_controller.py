@@ -3,6 +3,7 @@ AI Controller
 Wraps the face recognition/tracking AI and integrates with system state
 """
 import os
+import pickle
 import time
 import threading
 import cv2
@@ -33,7 +34,8 @@ NO_FACE_TIMEOUT_S = 0.5
 RECOG_TOLERANCE = 0.5
 BODY_CLOSE_AREA = 0.35
 BODY_LOST_TIMEOUT_S = 0.5
-KNOWN_FACES_DIR = "pi_minimal/known_faces"
+KNOWN_FACES_DIR = "pi_minimal/known_faces/images"
+ENCODINGS_FILE = "pi_minimal/known_faces/encodings.pkl"
 
 class AIController:
     """AI-based person following controller"""
@@ -58,18 +60,61 @@ class AIController:
         # Frame sharing
         self.current_frame = None
         self.frame_lock = threading.Lock()
+        
+        # Debug info for overlay
+        self.debug_info = {
+            "distance": 0.0,
+            "face_size": (0, 0),
+            "confidence": 0.0
+        }
     
     def load_known_faces(self):
-        """Load known faces from directory"""
+        """Load known faces from pre-computed encodings or generate if needed"""
         if not FACE_RECOG_AVAILABLE:
             print("[AI] face_recognition not available, skipping face loading")
             return
         
+        # Try to load from pre-computed encodings file
+        if os.path.exists(ENCODINGS_FILE):
+            try:
+                start_time = time.time()
+                print(f"[AI] Loading pre-computed encodings from {ENCODINGS_FILE}")
+                
+                with open(ENCODINGS_FILE, "rb") as f:
+                    data = pickle.load(f)
+                
+                self.known_encodings = data["encodings"]
+                self.known_names = data["names"]
+                
+                load_time = time.time() - start_time
+                print(f"[AI] Loaded {len(self.known_encodings)} encodings in {load_time:.2f}s")
+                print(f"[AI] Generated at: {data.get('generated_at', 'Unknown')}")
+                
+                # Show breakdown by person
+                unique_names = set(self.known_names)
+                for name in sorted(unique_names):
+                    count = sum(1 for n in self.known_names if n == name)
+                    print(f"[AI]   - {name}: {count} encodings")
+                
+                return
+            
+            except Exception as e:
+                print(f"[AI] Error loading encodings file: {e}")
+                print("[AI] Falling back to generating encodings from images...")
+        
+        else:
+            print(f"[AI] Encodings file not found: {ENCODINGS_FILE}")
+            print("[AI] Generating encodings from images (this may take a while)...")
+        
+        # Fallback: Generate encodings from images
         if not os.path.isdir(KNOWN_FACES_DIR):
             print(f"[AI] Known faces directory not found: {KNOWN_FACES_DIR}")
+            print("[AI] Please run: python generate_encodings.py")
             return
         
+        start_time = time.time()
         count = 0
+        
         for person in os.listdir(KNOWN_FACES_DIR):
             person_dir = os.path.join(KNOWN_FACES_DIR, person)
             if not os.path.isdir(person_dir):
@@ -90,7 +135,9 @@ class AIController:
                 except Exception as e:
                     print(f"[AI] Error loading {path}: {e}")
         
-        print(f"[AI] Loaded {count} known faces")
+        load_time = time.time() - start_time
+        print(f"[AI] Generated {count} encodings in {load_time:.2f}s")
+        print(f"[AI] Tip: Run 'python generate_encodings.py' to pre-compute encodings for faster startup")
     
     def initialize_models(self):
         """Initialize MediaPipe models"""
@@ -125,27 +172,92 @@ class AIController:
         with self.frame_lock:
             return self.current_frame.copy() if self.current_frame is not None else None
     
+    def get_debug_info(self):
+        """Get current debug information"""
+        return self.debug_info.copy()
+    
+    def draw_overlay(self, frame, tracking_name, distance, face_size, action):
+        """Draw debug overlay on frame"""
+        if frame is None:
+            return frame
+        
+        overlay_frame = frame.copy()
+        
+        # Calculate confidence (inverse of distance, normalized to 0-100%)
+        confidence = max(0, min(100, (1.0 - distance) * 100)) if distance is not None else 0
+        
+        # Background for text
+        overlay = overlay_frame.copy()
+        cv2.rectangle(overlay, (10, 10), (630, 130), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.6, overlay_frame, 0.4, 0, overlay_frame)
+        
+        # Display information
+        y_offset = 35
+        
+        if tracking_name:
+            cv2.putText(overlay_frame, f"Tracking: {tracking_name}", (20, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        else:
+            cv2.putText(overlay_frame, "Tracking: None", (20, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+        
+        y_offset += 30
+        
+        if distance is not None:
+            cv2.putText(overlay_frame, f"Distance: {distance:.4f}", (20, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+        
+        y_offset += 25
+        
+        cv2.putText(overlay_frame, f"Confidence: {confidence:.1f}%", (20, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+        
+        y_offset += 25
+        
+        if face_size and face_size[0] > 0:
+            cv2.putText(overlay_frame, f"Face Size: {face_size[0]}x{face_size[1]}px", (20, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        
+        y_offset += 25
+        
+        if action:
+            action_color = (0, 255, 0) if action == "stop" else (255, 165, 0)
+            cv2.putText(overlay_frame, f"Action: {action.upper()}", (20, y_offset),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, action_color, 2)
+        
+        return overlay_frame
+    
     def recognize_face(self, rgb_frame, face_bbox):
-        """Recognize face in bounding box"""
+        """Recognize face in bounding box with debugging info"""
         if not self.known_encodings:
-            return None, None
+            return None, None, None
         
         top, right, bottom, left = face_bbox
         try:
             encs = face_recognition.face_encodings(rgb_frame, [(top, right, bottom, left)])
             if not encs:
-                return None, None
+                return None, None, None
             
             face_enc = encs[0]
             distances = face_recognition.face_distance(self.known_encodings, face_enc)
             best_idx = int(np.argmin(distances))
+            best_distance = float(distances[best_idx])
             
-            if distances[best_idx] <= RECOG_TOLERANCE:
-                return self.known_names[best_idx], float(distances[best_idx])
+            # Calculate face dimensions
+            face_width = right - left
+            face_height = bottom - top
+            
+            # Debug print
+            print(f"[AI DEBUG] Best distance: {best_distance:.4f}, "
+                  f"Face size: {face_width}x{face_height}px, "
+                  f"Threshold: {RECOG_TOLERANCE}")
+            
+            if best_distance <= RECOG_TOLERANCE:
+                return self.known_names[best_idx], best_distance, (face_width, face_height)
         except Exception as e:
             print(f"[AI] Recognition error: {e}")
         
-        return None, None
+        return None, None, None
     
     def pose_bbox(self, landmarks):
         """Get bounding box from pose landmarks"""
@@ -235,11 +347,16 @@ class AIController:
                         right = min(FRAME_WIDTH, right)
                         bottom = min(FRAME_HEIGHT, bottom)
                         
-                        name, dist = self.recognize_face(rgb, (top, right, bottom, left))
+                        name, dist, face_size = self.recognize_face(rgb, (top, right, bottom, left))
                         if name and (best_distance is None or dist < best_distance):
                             best_distance = dist
                             best_match = name
                             known_bbox = (top, right, bottom, left)
+                            
+                            # Update debug info
+                            self.debug_info["distance"] = dist
+                            self.debug_info["face_size"] = face_size
+                            self.debug_info["confidence"] = (1.0 - dist) if dist else 0.0
                     
                     if best_match:
                         known_face = best_match

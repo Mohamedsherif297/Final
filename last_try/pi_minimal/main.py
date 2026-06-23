@@ -1,5 +1,6 @@
 import argparse
 import os
+import pickle
 import time
 
 import cv2
@@ -43,8 +44,9 @@ RECOG_TOLERANCE = 0.5
 BODY_CLOSE_AREA = 0.35
 BODY_LOST_TIMEOUT_S = 0.5
 
-# Known faces directory
-KNOWN_FACES_DIR = "known_faces"
+# Known faces directory and encodings file
+KNOWN_FACES_DIR = "known_faces/images"
+ENCODINGS_FILE = "known_faces/encodings.pkl"
 
 # Ultrasonic settings
 OBSTACLE_CM = 25.0
@@ -171,16 +173,46 @@ def decide_and_drive(target_center_x: int, target_area: float, frame_center_x: i
     return "forward"
 
 
-def load_known_faces(base_dir: str):
+def load_known_faces(base_dir: str, encodings_file: str):
+    """Load known faces from pre-computed encodings or generate if needed"""
     if not FACE_RECOG_AVAILABLE:
         raise RuntimeError("face_recognition is not available")
 
     encodings = []
     names = []
 
+    # Try to load from pre-computed encodings file
+    if os.path.exists(encodings_file):
+        try:
+            start_time = time.time()
+            print(f"Loading pre-computed encodings from {encodings_file}")
+            
+            with open(encodings_file, "rb") as f:
+                data = pickle.load(f)
+            
+            encodings = data["encodings"]
+            names = data["names"]
+            
+            load_time = time.time() - start_time
+            print(f"Loaded {len(encodings)} encodings in {load_time:.2f}s")
+            print(f"Generated at: {data.get('generated_at', 'Unknown')}")
+            
+            return encodings, names
+        
+        except Exception as e:
+            print(f"Error loading encodings file: {e}")
+            print("Falling back to generating encodings from images...")
+    
+    else:
+        print(f"Encodings file not found: {encodings_file}")
+        print("Generating encodings from images (this may take a while)...")
+
+    # Fallback: Generate encodings from images
     if not os.path.isdir(base_dir):
+        print(f"Known faces directory not found: {base_dir}")
         return encodings, names
 
+    start_time = time.time()
     for person in os.listdir(base_dir):
         person_dir = os.path.join(base_dir, person)
         if not os.path.isdir(person_dir):
@@ -189,29 +221,98 @@ def load_known_faces(base_dir: str):
             if not fname.lower().endswith((".jpg", ".jpeg", ".png")):
                 continue
             path = os.path.join(person_dir, fname)
-            image = face_recognition.load_image_file(path)
-            encs = face_recognition.face_encodings(image)
-            if not encs:
-                continue
-            encodings.append(encs[0])
-            names.append(person)
+            try:
+                image = face_recognition.load_image_file(path)
+                encs = face_recognition.face_encodings(image)
+                if not encs:
+                    continue
+                encodings.append(encs[0])
+                names.append(person)
+            except Exception as e:
+                print(f"Error loading {path}: {e}")
+    
+    load_time = time.time() - start_time
+    print(f"Generated {len(encodings)} encodings in {load_time:.2f}s")
+    print("Tip: Run 'python generate_encodings.py' to pre-compute encodings for faster startup")
 
     return encodings, names
 
 
 def recognize_face(rgb_frame: np.ndarray, face_bbox, known_encodings, known_names):
+    """Recognize face with debugging information"""
     if not known_encodings:
-        return None, None
+        return None, None, None
+    
     top, right, bottom, left = face_bbox
     encs = face_recognition.face_encodings(rgb_frame, [(top, right, bottom, left)])
     if not encs:
-        return None, None
+        return None, None, None
+    
     face_enc = encs[0]
     distances = face_recognition.face_distance(known_encodings, face_enc)
     best_idx = int(np.argmin(distances))
-    if distances[best_idx] <= RECOG_TOLERANCE:
-        return known_names[best_idx], float(distances[best_idx])
-    return None, None
+    best_distance = float(distances[best_idx])
+    
+    # Calculate face dimensions
+    face_width = right - left
+    face_height = bottom - top
+    
+    # Debug print
+    print(f"[DEBUG] Distance: {best_distance:.4f}, Face: {face_width}x{face_height}px, Threshold: {RECOG_TOLERANCE}")
+    
+    if best_distance <= RECOG_TOLERANCE:
+        return known_names[best_idx], best_distance, (face_width, face_height)
+    
+    return None, None, None
+
+
+def draw_debug_overlay(frame, tracking_name, distance, face_size, action):
+    """Draw debug information on frame"""
+    overlay_frame = frame.copy()
+    
+    # Calculate confidence
+    confidence = max(0, min(100, (1.0 - distance) * 100)) if distance is not None else 0
+    
+    # Background for text
+    overlay = overlay_frame.copy()
+    cv2.rectangle(overlay, (10, 10), (630, 130), (0, 0, 0), -1)
+    cv2.addWeighted(overlay, 0.6, overlay_frame, 0.4, 0, overlay_frame)
+    
+    # Display information
+    y_offset = 35
+    
+    if tracking_name:
+        cv2.putText(overlay_frame, f"Tracking: {tracking_name}", (20, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    else:
+        cv2.putText(overlay_frame, "Tracking: None", (20, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+    
+    y_offset += 30
+    
+    if distance is not None:
+        cv2.putText(overlay_frame, f"Distance: {distance:.4f}", (20, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+    
+    y_offset += 25
+    
+    cv2.putText(overlay_frame, f"Confidence: {confidence:.1f}%", (20, y_offset),
+               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+    
+    y_offset += 25
+    
+    if face_size and face_size[0] > 0:
+        cv2.putText(overlay_frame, f"Face Size: {face_size[0]}x{face_size[1]}px", (20, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+    
+    y_offset += 25
+    
+    if action:
+        action_color = (0, 255, 0) if action == "stop_close" else (255, 165, 0)
+        cv2.putText(overlay_frame, f"Action: {action.replace('_', ' ').upper()}", (20, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, action_color, 2)
+    
+    return overlay_frame
 
 
 def pose_bbox(landmarks, frame_w: int, frame_h: int):
@@ -244,7 +345,13 @@ def main():
     if not FACE_RECOG_AVAILABLE:
         raise RuntimeError("face_recognition not installed")
 
-    known_encodings, known_names = load_known_faces(args.faces_dir)
+    # Determine encodings file path relative to faces_dir
+    if args.faces_dir == KNOWN_FACES_DIR:
+        encodings_file = ENCODINGS_FILE
+    else:
+        encodings_file = os.path.join(os.path.dirname(args.faces_dir), "encodings.pkl")
+    
+    known_encodings, known_names = load_known_faces(args.faces_dir, encodings_file)
 
     left_pwm, right_pwm = setup_gpio(dry_run)
 
@@ -264,6 +371,11 @@ def main():
     last_face_seen = 0.0
     last_body_seen = 0.0
     tracking_name = None
+    
+    # Debug info
+    current_distance = None
+    current_face_size = (0, 0)
+    current_action = "idle"
 
     try:
         while True:
@@ -300,13 +412,15 @@ def main():
                     right = min(FRAME_WIDTH, right)
                     bottom = min(FRAME_HEIGHT, bottom)
 
-                    name, dist = recognize_face(rgb, (top, right, bottom, left), known_encodings, known_names)
+                    name, dist, face_size = recognize_face(rgb, (top, right, bottom, left), known_encodings, known_names)
                     if name is None:
                         continue
                     if best_distance is None or dist < best_distance:
                         best_distance = dist
                         best_match = name
                         known_bbox = (top, right, bottom, left)
+                        current_distance = dist
+                        current_face_size = face_size
 
                 if best_match:
                     known_face = best_match
@@ -321,8 +435,9 @@ def main():
                     face_center_x, face_area, FRAME_WIDTH // 2,
                     left_pwm, right_pwm, args.speed, dry_run, CLOSE_AREA
                 )
+                current_action = action
                 if dry_run:
-                    print("%s known=%s area=%.3f" % (action, known_face, face_area))
+                    print("%s known=%s area=%.3f dist=%.4f" % (action, known_face, face_area, best_distance))
             else:
                 if time.time() - last_face_seen <= NO_FACE_TIMEOUT_S:
                     pass
@@ -339,27 +454,33 @@ def main():
                                 body_center_x, body_area, FRAME_WIDTH // 2,
                                 left_pwm, right_pwm, args.speed, dry_run, BODY_CLOSE_AREA
                             )
+                            current_action = action
                             if dry_run:
                                 print("%s body area=%.3f" % (action, body_area))
                         else:
                             if time.time() - last_body_seen > BODY_LOST_TIMEOUT_S:
                                 stop_motors(left_pwm, right_pwm, dry_run)
                                 tracking_name = None
+                                current_action = "stop_no_body"
                                 if dry_run:
                                     print("stop_no_body")
                     else:
                         if time.time() - last_body_seen > BODY_LOST_TIMEOUT_S:
                             stop_motors(left_pwm, right_pwm, dry_run)
                             tracking_name = None
+                            current_action = "stop_no_body"
                             if dry_run:
                                 print("stop_no_body")
                 else:
                     stop_motors(left_pwm, right_pwm, dry_run)
+                    current_action = "stop_no_known"
                     if dry_run:
                         print("stop_no_known")
 
             if args.display:
-                cv2.imshow("pi_minimal", frame)
+                display_frame = draw_debug_overlay(frame, tracking_name, current_distance, 
+                                                   current_face_size, current_action)
+                cv2.imshow("pi_minimal", display_frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
