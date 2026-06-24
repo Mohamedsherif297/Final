@@ -191,11 +191,14 @@ class DatasetCollector:
                         cv2.rectangle(display_frame, (left, top), (right, bottom), (0, 255, 0), 2)
                     
                     cv2.imshow("Dataset Collection", display_frame)
-                
-                # Check for quit
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    print("\n[STOPPED] Collection stopped by user")
-                    break
+                    
+                    # Check for quit (only in display mode)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        print("\n[STOPPED] Collection stopped by user")
+                        break
+                else:
+                    # In headless mode, just sleep briefly
+                    time.sleep(0.01)
         
         except KeyboardInterrupt:
             print("\n[STOPPED] Collection interrupted by user")
