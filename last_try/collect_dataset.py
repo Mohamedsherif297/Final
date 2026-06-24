@@ -6,7 +6,7 @@ Automatically collects face images for training the face recognition system.
 Features:
 - Runs for 2 minutes
 - Captures ~1 image per second (~120 images total)
-- Uses MediaPipe for face detection (no recognition required)
+- Uses face_recognition for face detection (no MediaPipe required)
 - Automatically generates encodings after collection
 - Saves to known_faces/images/<PERSON_NAME>/
 """
@@ -18,20 +18,12 @@ import sys
 from pathlib import Path
 
 try:
-    import mediapipe as mp
-    MEDIAPIPE_AVAILABLE = True
-except ImportError:
-    print("ERROR: mediapipe not installed")
-    print("Install with: pip install mediapipe")
-    sys.exit(1)
-
-try:
     import face_recognition
     FACE_RECOG_AVAILABLE = True
 except ImportError:
-    print("WARNING: face_recognition not installed")
-    print("Encodings will not be generated automatically")
-    FACE_RECOG_AVAILABLE = False
+    print("ERROR: face_recognition not installed")
+    print("Install with: pip3 install face_recognition")
+    sys.exit(1)
 
 # Configuration
 CAMERA_INDEX = 0
@@ -44,7 +36,7 @@ ENCODINGS_FILE = "pi_minimal/known_faces/encodings.pkl"
 
 
 class DatasetCollector:
-    """Automatic face dataset collection"""
+    """Automatic face dataset collection using face_recognition library"""
     
     def __init__(self, person_name: str, output_dir: str, duration: int = 120, interval: float = 1.0):
         self.person_name = person_name
@@ -61,17 +53,13 @@ class DatasetCollector:
         self.faces_detected = 0
         self.no_face_count = 0
         
-        # MediaPipe face detection
-        self.mp_face = mp.solutions.face_detection.FaceDetection(
-            min_detection_confidence=0.6
-        )
-        
         print(f"Dataset Collector initialized")
         print(f"Person: {person_name}")
         print(f"Output directory: {self.person_dir}")
         print(f"Duration: {duration} seconds")
         print(f"Capture interval: {interval} seconds")
         print(f"Expected images: ~{int(duration / interval)}")
+        print(f"Using face_recognition for detection (no MediaPipe)")
     
     def get_next_filename(self) -> str:
         """Get next available filename in sequence"""
@@ -91,12 +79,19 @@ class DatasetCollector:
         return os.path.join(self.person_dir, f"{self.person_name}_{next_num:03d}.jpg")
     
     def detect_face(self, frame):
-        """Detect face using MediaPipe"""
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.mp_face.process(rgb)
+        """Detect face using face_recognition library"""
+        # Resize frame for faster detection (optional, but helps on Pi)
+        small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+        rgb = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
         
-        if results.detections:
-            return True, results.detections[0]
+        # Detect face locations
+        face_locations = face_recognition.face_locations(rgb, model="hog")
+        
+        if face_locations:
+            # Scale back up face locations since frame was scaled down
+            top, right, bottom, left = face_locations[0]
+            face_bbox = (top * 2, right * 2, bottom * 2, left * 2)
+            return True, face_bbox
         return False, None
     
     def draw_info(self, frame, face_detected: bool, time_remaining: int, 
@@ -191,13 +186,9 @@ class DatasetCollector:
                                  self.images_captured, self.faces_detected)
                     
                     # Draw face bounding box if detected
-                    if face_detected:
-                        box = detection.location_data.relative_bounding_box
-                        x = int(box.xmin * FRAME_WIDTH)
-                        y = int(box.ymin * FRAME_HEIGHT)
-                        w = int(box.width * FRAME_WIDTH)
-                        h = int(box.height * FRAME_HEIGHT)
-                        cv2.rectangle(display_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    if face_detected and detection:
+                        top, right, bottom, left = detection
+                        cv2.rectangle(display_frame, (left, top), (right, bottom), (0, 255, 0), 2)
                     
                     cv2.imshow("Dataset Collection", display_frame)
                 
@@ -231,12 +222,6 @@ class DatasetCollector:
 
 def generate_encodings_for_person(person_name: str, person_dir: str, encodings_file: str):
     """Generate face encodings for collected images"""
-    if not FACE_RECOG_AVAILABLE:
-        print("\n[WARNING] face_recognition not available")
-        print("Cannot generate encodings automatically")
-        print("Please install face_recognition and run: python3 generate_encodings.py")
-        return
-    
     print("\n" + "=" * 60)
     print("GENERATING FACE ENCODINGS")
     print("=" * 60)
