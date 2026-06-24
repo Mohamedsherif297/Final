@@ -20,7 +20,22 @@ from servo import Servo
 from led import LED
 from ultrasonic import Ultrasonic
 from system_state import SystemState, ControlMode
-from ai_controller import AIController
+
+# Try to import AI controller (use no-MediaPipe version)
+try:
+    from ai_controller_no_mediapipe import AIController
+    print("[Import] Using ai_controller_no_mediapipe (face_recognition only)")
+except ImportError:
+    try:
+        from ai_controller import AIController
+        print("[Import] Using ai_controller (with MediaPipe)")
+    except ImportError:
+        print("[Import] ERROR: Could not import AIController")
+        AIController = None
+
+# ========== Configuration ==========
+ENABLE_ULTRASONIC = False  # Set to False to disable ultrasonic sensor
+EMERGENCY_DISTANCE_CM = 15  # Distance threshold for auto emergency stop
 
 # ========== MQTT Configuration ==========
 MQTT_BROKER = "78ed3eab06c348d0948ef7681cf4a377.s1.eu.hivemq.cloud"
@@ -73,6 +88,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     try:
+        print(f"[MQTT] Received on topic '{msg.topic}': {msg.payload.decode()}")
         data = json.loads(msg.payload.decode())
         topic = msg.topic
         
@@ -87,7 +103,9 @@ def on_message(client, userdata, msg):
         elif topic == "dev/mode":
             handle_mode(data)
     except Exception as e:
-        print(f"[MQTT] Error: {e}")
+        print(f"[MQTT] Error processing message: {e}")
+        import traceback
+        traceback.print_exc()
 
 def handle_mode(data):
     """Handle mode switching commands"""
@@ -108,16 +126,22 @@ def handle_mode(data):
 
 def handle_motor(data):
     """Handle manual motor commands (only in MANUAL mode)"""
+    print(f"[Motor] Received MQTT: {data}")
+    
     # Check if in manual mode
     if system_state.mode != ControlMode.MANUAL:
-        print("[Motor] Ignoring manual command - not in MANUAL mode")
+        print(f"[Motor] Ignoring manual command - not in MANUAL mode (current: {system_state.mode})")
         return
     
     direction = data.get("direction", "")
     speed = data.get("speed", 70)
     
+    print(f"[Motor] Sending to queue: direction={direction}, speed={speed}")
+    
     # Send to motor queue with manual source
     system_state.send_motor_command(direction, speed, source="manual")
+    
+    print(f"[Motor] Command queued successfully")
 
 def handle_servo(data):
     pan = data.get("pan")
@@ -140,12 +164,15 @@ def handle_command(data):
         motor.stop()
         led.set_color(0, 255, 0)
     elif command == "emergency_stop":
+        print("[Commands] 🚨 EMERGENCY STOP command received")
         system_state.trigger_emergency_stop()
         motor.stop()
         led.set_color(255, 0, 0)  # Red = back light
         led.buzzer_alarm()  # Start alarm
     elif command == "reset_emergency":
+        print("[Commands] ⚠️ RESET EMERGENCY STOP command received")
         system_state.reset_emergency_stop()
+        print("[Commands] ✅ Emergency stop RESET - motors should work now")
         led.set_color(0, 255, 0)  # Green = forward lights
         led.buzzer_stop_alarm()  # Stop alarm
 
@@ -173,6 +200,8 @@ def motor_command_processor():
         
         if cmd is None:
             continue
+        
+        print(f"[MotorProc] Processing command: {cmd.direction} @ {cmd.speed}% (source: {cmd.source})")
         
         # Execute motor command
         with system_state.motor_lock:
@@ -399,9 +428,11 @@ def ultrasonic_loop():
     """Read ultrasonic sensor periodically"""
     global ultrasonic_distance
     
-    print("[Ultrasonic] Reading loop started")
+    if not ultrasonic:
+        print("[Ultrasonic] Sensor not initialized, loop exiting")
+        return
     
-    EMERGENCY_DISTANCE_CM = 15  # Trigger emergency stop if closer than 15cm
+    print("[Ultrasonic] Reading loop started")
     
     while not system_state.shutdown.is_set():
         try:
@@ -411,12 +442,13 @@ def ultrasonic_loop():
                 with ultrasonic_lock:
                     ultrasonic_distance = distance
                 
-                # Auto emergency stop if too close
-                if distance < EMERGENCY_DISTANCE_CM and not system_state.emergency_stop.is_set():
+                # Auto emergency stop if too close (only if enabled)
+                if ENABLE_ULTRASONIC and distance < EMERGENCY_DISTANCE_CM and not system_state.emergency_stop.is_set():
                     print(f"[Ultrasonic] ⚠️ OBSTACLE TOO CLOSE: {distance:.1f}cm - Emergency stop!")
                     system_state.trigger_emergency_stop()
                     motor.stop()
-                    led.buzzer_beep_pattern(times=3, duration=0.1, interval=0.1)  # Warning beeps
+                    if led:
+                        led.buzzer_beep_pattern(times=3, duration=0.1, interval=0.1)  # Warning beeps
             
             time.sleep(0.1)  # Read at 10 Hz
             
@@ -447,12 +479,19 @@ async def main():
     motor = Motor()
     servo = Servo()
     led = LED()
-    ultrasonic = Ultrasonic()
+    
+    if ENABLE_ULTRASONIC:
+        ultrasonic = Ultrasonic()
+        ultrasonic.setup()
+    else:
+        ultrasonic = None
+        print("[Ultrasonic] DISABLED (set ENABLE_ULTRASONIC=True to enable)")
     
     motor.setup()
     servo.setup()
     led.setup()
-    ultrasonic.setup()
+    if ultrasonic:
+        ultrasonic.setup()
     
     led.set_color(255, 0, 0)  # Red = starting
     print("[Hardware] ✓ Initialized")
@@ -481,9 +520,12 @@ async def main():
     camera_thread = threading.Thread(target=camera_loop, daemon=True)
     camera_thread.start()
     
-    # Start ultrasonic thread
-    ultrasonic_thread = threading.Thread(target=ultrasonic_loop, daemon=True)
-    ultrasonic_thread.start()
+    # Start ultrasonic thread (only if enabled)
+    if ENABLE_ULTRASONIC and ultrasonic:
+        ultrasonic_thread = threading.Thread(target=ultrasonic_loop, daemon=True)
+        ultrasonic_thread.start()
+    else:
+        print("[Ultrasonic] Thread not started (sensor disabled)")
     
     # Start frame broadcaster task
     broadcaster_task = asyncio.create_task(frame_broadcaster())

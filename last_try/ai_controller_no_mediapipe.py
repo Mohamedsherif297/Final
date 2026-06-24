@@ -4,6 +4,7 @@ Uses face_recognition for both detection and recognition
 Works with Python 3.13
 """
 import os
+import pickle
 import time
 import threading
 import cv2
@@ -28,6 +29,7 @@ NO_FACE_TIMEOUT_S = 2.0
 RECOG_TOLERANCE = 0.4  # Lower = stricter (0.4 = 75% confidence)
 MIN_CONFIDENCE_TO_ACT = 0.50  # Only act if confidence >= 50%
 KNOWN_FACES_DIR = "pi_minimal/known_faces/images"
+ENCODINGS_FILE = "pi_minimal/known_faces/encodings.pkl"
 PROCESS_EVERY_N_FRAMES = 2  # Process every 2nd frame for speed
 
 class AIController:
@@ -51,18 +53,61 @@ class AIController:
         # Frame sharing
         self.current_frame = None
         self.frame_lock = threading.Lock()
+        
+        # Debug info for overlay
+        self.debug_info = {
+            "distance": 0.0,
+            "face_size": (0, 0),
+            "confidence": 0.0
+        }
     
     def load_known_faces(self):
-        """Load known faces from directory"""
+        """Load known faces from pre-computed encodings or generate if needed"""
         if not FACE_RECOG_AVAILABLE:
             print("[AI] face_recognition not available, skipping face loading")
             return False
         
+        # Try to load from pre-computed encodings file
+        if os.path.exists(ENCODINGS_FILE):
+            try:
+                start_time = time.time()
+                print(f"[AI] Loading pre-computed encodings from {ENCODINGS_FILE}")
+                
+                with open(ENCODINGS_FILE, "rb") as f:
+                    data = pickle.load(f)
+                
+                self.known_encodings = data["encodings"]
+                self.known_names = data["names"]
+                
+                load_time = time.time() - start_time
+                print(f"[AI] Loaded {len(self.known_encodings)} encodings in {load_time:.2f}s")
+                print(f"[AI] Generated at: {data.get('generated_at', 'Unknown')}")
+                
+                # Show breakdown by person
+                unique_names = set(self.known_names)
+                for name in sorted(unique_names):
+                    count = sum(1 for n in self.known_names if n == name)
+                    print(f"[AI]   - {name}: {count} encodings")
+                
+                return True
+            
+            except Exception as e:
+                print(f"[AI] Error loading encodings file: {e}")
+                print("[AI] Falling back to generating encodings from images...")
+        
+        else:
+            print(f"[AI] Encodings file not found: {ENCODINGS_FILE}")
+            print("[AI] Generating encodings from images (this may take a while)...")
+        
+        # Fallback: Generate encodings from images
         if not os.path.isdir(KNOWN_FACES_DIR):
             print(f"[AI] Known faces directory not found: {KNOWN_FACES_DIR}")
+            print("[AI] Please run: python3 collect_dataset.py YourName")
             return False
         
+        start_time = time.time()
         count = 0
+        
         for person in os.listdir(KNOWN_FACES_DIR):
             person_dir = os.path.join(KNOWN_FACES_DIR, person)
             if not os.path.isdir(person_dir):
@@ -83,7 +128,10 @@ class AIController:
                 except Exception as e:
                     print(f"[AI] Error loading {path}: {e}")
         
-        print(f"[AI] Loaded {count} face encodings for {len(set(self.known_names))} people")
+        load_time = time.time() - start_time
+        print(f"[AI] Generated {count} encodings in {load_time:.2f}s")
+        print(f"[AI] Tip: Run 'python3 generate_encodings.py' to pre-compute encodings for faster startup")
+        
         return count > 0
     
     def set_frame(self, frame):
@@ -95,6 +143,10 @@ class AIController:
         """Get current frame for processing"""
         with self.frame_lock:
             return self.current_frame.copy() if self.current_frame is not None else None
+    
+    def get_debug_info(self):
+        """Get current debug information"""
+        return self.debug_info.copy()
     
     def decide_action(self, target_center_x, target_area):
         """Decide motor action based on target position"""
@@ -178,6 +230,14 @@ class AIController:
                         distances = face_recognition.face_distance(self.known_encodings, face_encoding)
                         min_distance = float(np.min(distances))
                         
+                        # Calculate face dimensions
+                        top, right, bottom, left = face_location
+                        face_width = (right - left) * 2  # Scale back up
+                        face_height = (bottom - top) * 2
+                        
+                        # Debug print
+                        print(f"[AI DEBUG] Distance: {min_distance:.4f}, Face: {face_width}x{face_height}px, Threshold: {RECOG_TOLERANCE}")
+                        
                         if min_distance <= RECOG_TOLERANCE:
                             best_idx = int(np.argmin(distances))
                             name = self.known_names[best_idx]
@@ -186,6 +246,11 @@ class AIController:
                                 best_match = name
                                 best_distance = min_distance
                                 best_location = face_location
+                                
+                                # Update debug info
+                                self.debug_info["distance"] = min_distance
+                                self.debug_info["face_size"] = (face_width, face_height)
+                                self.debug_info["confidence"] = 1.0 - min_distance
                     
                     # Process best match
                     if best_match and best_location:
