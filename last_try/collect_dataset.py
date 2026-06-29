@@ -126,19 +126,22 @@ class DatasetCollector:
         return os.path.join(self.person_dir, f"{self.person_name}_{next_num:03d}.jpg")
     
     def detect_face(self, frame):
-        """Detect face using face_recognition library"""
-        # Resize frame for faster detection (same as AI controller)
-        small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-        rgb = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+        """Detect face using face_recognition library - optimized for distance"""
+        # For collection at distance, use full resolution for better detection
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        # Use HOG model (faster, more lenient than CNN)
-        # Note: Using model="hog" is faster and captures more faces
-        face_locations = face_recognition.face_locations(rgb, model="hog", number_of_times_to_upsample=1)
+        # Use HOG model with more upsampling for better detection at distance
+        # number_of_times_to_upsample=2 helps detect smaller/farther faces
+        face_locations = face_recognition.face_locations(
+            rgb, 
+            model="hog", 
+            number_of_times_to_upsample=2  # Increased from 1 for better distance detection
+        )
         
         if face_locations:
-            # Scale back up face locations since frame was scaled down
+            # Use first detected face
             top, right, bottom, left = face_locations[0]
-            face_bbox = (top * 2, right * 2, bottom * 2, left * 2)
+            face_bbox = (top, right, bottom, left)
             return True, face_bbox
         return False, None
     
