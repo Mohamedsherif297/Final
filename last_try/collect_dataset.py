@@ -76,12 +76,13 @@ CAMERA_TILT_ANGLE = 50  # degrees upward (match robot camera angle)
 class DatasetCollector:
     """Automatic face dataset collection using face_recognition library"""
     
-    def __init__(self, person_name: str, output_dir: str, duration: int = 120, interval: float = 1.0, distance_cm: int = None):
+    def __init__(self, person_name: str, output_dir: str, duration: int = 120, interval: float = 1.0, distance_cm: int = None, use_cnn: bool = False):
         self.person_name = person_name
         self.output_dir = output_dir
         self.duration = duration
         self.interval = interval
         self.distance_cm = distance_cm  # Optional distance marker
+        self.use_cnn = use_cnn  # Use CNN for better detection
         
         # Create person directory with distance marker if specified
         if distance_cm:
@@ -106,6 +107,7 @@ class DatasetCollector:
         print(f"Capture interval: {interval} seconds")
         print(f"Expected images: ~{int(duration / interval)}")
         print(f"Resolution: {FRAME_WIDTH}x{FRAME_HEIGHT}")
+        print(f"Detection model: {'CNN (accurate, slow)' if use_cnn else 'HOG (fast)'}")
         print(f"Using face_recognition for detection (no MediaPipe)")
     
     def get_next_filename(self) -> str:
@@ -130,12 +132,17 @@ class DatasetCollector:
         # For collection at distance, use full resolution for better detection
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        # Use HOG model with more upsampling for better detection at distance
-        # number_of_times_to_upsample=2 helps detect smaller/farther faces
+        # Choose model based on settings
+        model = "cnn" if self.use_cnn else "hog"
+        upsample = 2 if not self.use_cnn else 1  # CNN doesn't need as much upsampling
+        
+        # Use selected model
+        # CNN: More accurate but MUCH slower (GPU recommended)
+        # HOG: Faster but less accurate at distance
         face_locations = face_recognition.face_locations(
             rgb, 
-            model="hog", 
-            number_of_times_to_upsample=2  # Increased from 1 for better distance detection
+            model=model, 
+            number_of_times_to_upsample=upsample
         )
         
         if face_locations:
@@ -472,6 +479,12 @@ RECOMMENDED WORKFLOW (3-distance collection):
     )
     
     parser.add_argument(
+        "--use-cnn",
+        action="store_true",
+        help="Use CNN model for better detection (slower, better at distance)"
+    )
+    
+    parser.add_argument(
         "--no-display",
         action="store_true",
         help="Run without displaying video (headless mode)"
@@ -498,7 +511,8 @@ RECOMMENDED WORKFLOW (3-distance collection):
         output_dir=args.output,
         duration=args.duration,
         interval=args.interval,
-        distance_cm=args.distance
+        distance_cm=args.distance,
+        use_cnn=args.use_cnn
     )
     
     # Run collection
