@@ -47,10 +47,14 @@ MQTT_CLIENT_ID = "raspi-car"
 # ========== WebSocket Configuration ==========
 WS_HOST = "0.0.0.0"
 WS_PORT = 8765
-VIDEO_WIDTH = 640
-VIDEO_HEIGHT = 480
+
+# Video streaming settings (synced with AI controller)
+from ai_controller_no_mediapipe import USE_HIGH_RES, FRAME_WIDTH, FRAME_HEIGHT
+
+VIDEO_WIDTH = FRAME_WIDTH  # Matches AI controller resolution
+VIDEO_HEIGHT = FRAME_HEIGHT
 VIDEO_FPS = 20
-JPEG_QUALITY = 65
+JPEG_QUALITY = 65 if USE_HIGH_RES else 75  # Lower quality for higher res
 
 # ========== Hardware ==========
 motor = None

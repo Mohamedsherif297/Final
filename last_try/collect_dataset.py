@@ -3,6 +3,41 @@
 Dataset Collection Script
 Automatically collects face images for training the face recognition system.
 
+IMPORTANT - How to Capture Good Dataset:
+==========================================
+1. Camera Setup:
+   - Mount camera at same height/angle as your robot (10cm from ground)
+   - Set tilt angle to 50 degrees upward (same as operational angle)
+   - This ensures training matches operational conditions
+
+2. Distance Range:
+   - Stand 0.5 - 2 meters away from camera during collection
+   - Move through different distances gradually
+   - Spend most time at 1-1.5 meters (operational range)
+
+3. Head Movement:
+   - Start facing camera directly (0-30 seconds)
+   - Slowly turn left and right (±30 degrees)
+   - Look slightly up and down (±15 degrees)
+   - Return to center frequently
+
+4. Lighting:
+   - Collect in same lighting as operational environment
+   - Include both bright and dim conditions if robot works in both
+   - Avoid extreme backlighting
+
+5. What to Avoid:
+   - Don't capture with face partially covered (hands, objects)
+   - Don't collect with multiple people in frame
+   - Don't move too fast (causes blur)
+   - Don't look down at phone/ground (robot won't see your face)
+
+6. Best Practices:
+   - Collect 100-150 images minimum
+   - Include different expressions (neutral, smile, talking)
+   - If you wear glasses, collect both with and without
+   - Review images after collection, delete obviously bad ones
+
 Features:
 - Runs for 2 minutes
 - Captures ~1 image per second (~120 images total)

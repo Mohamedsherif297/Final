@@ -20,17 +20,49 @@ except ImportError:
 
 from system_state import SystemState
 
-# AI Configuration
-FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
-DEADZONE_PX = 80
-CLOSE_AREA = 0.25
-NO_FACE_TIMEOUT_S = 2.0
-RECOG_TOLERANCE = 0.4  # Lower = stricter (0.4 = 75% confidence)
-MIN_CONFIDENCE_TO_ACT = 0.50  # Only act if confidence >= 50%
+# ========== AI Configuration ==========
+# ⚠️ EASY REVERT: Change USE_HIGH_RES to False to revert to 640x480
+USE_HIGH_RES = True  # Set to False to use old 640x480 resolution
+
+if USE_HIGH_RES:
+    FRAME_WIDTH = 1280
+    FRAME_HEIGHT = 720
+    PROCESS_EVERY_N_FRAMES = 3  # Skip more frames for performance
+    DETECTION_SCALE = 0.4  # Resize to 40% for detection (512x288)
+else:
+    # Original settings (FALLBACK)
+    FRAME_WIDTH = 640
+    FRAME_HEIGHT = 480
+    PROCESS_EVERY_N_FRAMES = 2
+    DETECTION_SCALE = 0.5  # Resize to 50% for detection (320x240)
+
+# ⚠️ EASY REVERT: Change USE_DISTANCE_CONTROL to False to use old area-based logic
+USE_DISTANCE_CONTROL = True  # Set to False to use old face_area logic
+
+# Camera Configuration
+CAMERA_TILT_ANGLE = 50  # degrees upward (optimal for 0.5-2m range)
+
+# Distance Control Thresholds (NEW - used if USE_DISTANCE_CONTROL = True)
+TARGET_DISTANCE_M = 1.0  # Hover at 1 meter
+DISTANCE_TOLERANCE_M = 0.2  # ±0.2m acceptable
+TOO_CLOSE_M = 0.7  # Back up if closer than this
+TOO_FAR_M = 2.0  # Give up tracking if farther than this
+MIN_FACE_SIZE_PX = 50  # Minimum face width to attempt tracking
+
+# Area Control Thresholds (OLD - used if USE_DISTANCE_CONTROL = False)
+CLOSE_AREA = 0.04  # 4% of frame (was 0.25) - stops at ~1m with high res
+TOO_CLOSE_AREA = 0.06  # 6% of frame - backup threshold
+MIN_FACE_AREA = 0.008  # 0.8% minimum to track
+
+# Recognition Thresholds
+DEADZONE_PX = 80  # Horizontal deadzone for centering
+NO_FACE_TIMEOUT_S = 2.0  # Keep tracking for 2s after losing face
+RECOG_TOLERANCE = 0.5  # Relaxed (was 0.4) - distance threshold for match
+MIN_CONFIDENCE_TO_ACT = 0.45  # Relaxed (was 0.40) - minimum confidence to act
+
+# Paths
 KNOWN_FACES_DIR = "pi_minimal/known_faces/images"
 ENCODINGS_FILE = "pi_minimal/known_faces/encodings.pkl"
-PROCESS_EVERY_N_FRAMES = 2  # Process every 2nd frame for speed
 
 class AIController:
     """AI-based person following controller using face_recognition only"""
@@ -148,11 +180,128 @@ class AIController:
         """Get current debug information"""
         return self.debug_info.copy()
     
-    def decide_action(self, target_center_x, target_area):
-        """Decide motor action based on target position"""
+    def estimate_distance_from_face_size(self, face_width_pixels):
+        """
+        Estimate horizontal distance based on face size in pixels
+        
+        Assumptions:
+        - Average face width: 15 cm
+        - Camera FOV: ~60 degrees (typical webcam)
+        - Calibrated for 1280x720 resolution
+        
+        Returns: estimated horizontal distance in meters
+        """
+        if not USE_DISTANCE_CONTROL:
+            return None
+        
+        # Empirical calibration (adjust based on your actual camera)
+        # At 1280px width with 60° FOV:
+        # - 1m distance → ~120px face width
+        # - 2m distance → ~60px face width
+        # - 0.5m distance → ~240px face width
+        
+        if USE_HIGH_RES:
+            # High resolution calibration (1280x720)
+            if face_width_pixels < 50:
+                return 2.5  # Too far or not a face
+            elif face_width_pixels < 70:
+                return 2.0  # Far
+            elif face_width_pixels < 100:
+                return 1.5  # Getting there
+            elif face_width_pixels < 130:
+                return 1.0  # TARGET - perfect distance
+            elif face_width_pixels < 170:
+                return 0.8  # Getting close
+            elif face_width_pixels < 220:
+                return 0.6  # Close
+            else:
+                return 0.4  # Too close
+        else:
+            # Low resolution calibration (640x480)
+            if face_width_pixels < 25:
+                return 2.5
+            elif face_width_pixels < 35:
+                return 2.0
+            elif face_width_pixels < 50:
+                return 1.5
+            elif face_width_pixels < 65:
+                return 1.0  # TARGET
+            elif face_width_pixels < 85:
+                return 0.8
+            elif face_width_pixels < 110:
+                return 0.6
+            else:
+                return 0.4
+    
+    def decide_action_distance_based(self, target_center_x, face_width_pixels, estimated_distance):
+        """
+        NEW: Distance-based control logic with hover state
+        
+        Returns action: stop, forward, backward, left, right
+        """
         frame_center_x = FRAME_WIDTH // 2
         
-        # Too close - stop
+        # Check if face is too small/far
+        if face_width_pixels < MIN_FACE_SIZE_PX:
+            print(f"[AI] Face too small ({face_width_pixels}px), giving up")
+            return "stop"
+        
+        # Check if too far
+        if estimated_distance > TOO_FAR_M:
+            print(f"[AI] Too far ({estimated_distance:.1f}m), giving up")
+            return "stop"
+        
+        # Too close - back up!
+        if estimated_distance < TOO_CLOSE_M:
+            print(f"[AI] Too close ({estimated_distance:.1f}m), backing up")
+            return "backward"
+        
+        # Perfect distance - maintain position (HOVER STATE)
+        if abs(estimated_distance - TARGET_DISTANCE_M) <= DISTANCE_TOLERANCE_M:
+            # Only adjust horizontal position
+            if target_center_x < frame_center_x - DEADZONE_PX:
+                print(f"[AI] At target distance ({estimated_distance:.1f}m), turning left")
+                return "left"
+            elif target_center_x > frame_center_x + DEADZONE_PX:
+                print(f"[AI] At target distance ({estimated_distance:.1f}m), turning right")
+                return "right"
+            else:
+                print(f"[AI] At target distance ({estimated_distance:.1f}m), HOVERING")
+                return "stop"  # HOVER - perfect position!
+        
+        # Too far - move forward
+        if estimated_distance > TARGET_DISTANCE_M + DISTANCE_TOLERANCE_M:
+            # Turn while moving forward
+            if target_center_x < frame_center_x - DEADZONE_PX:
+                print(f"[AI] Too far ({estimated_distance:.1f}m), forward+left")
+                return "left"  # Will turn left while moving
+            elif target_center_x > frame_center_x + DEADZONE_PX:
+                print(f"[AI] Too far ({estimated_distance:.1f}m), forward+right")
+                return "right"  # Will turn right while moving
+            else:
+                print(f"[AI] Too far ({estimated_distance:.1f}m), moving forward")
+                return "forward"
+        
+        # Slightly too close - just turn to maintain center
+        if estimated_distance < TARGET_DISTANCE_M - DISTANCE_TOLERANCE_M:
+            if target_center_x < frame_center_x - DEADZONE_PX:
+                return "left"
+            elif target_center_x > frame_center_x + DEADZONE_PX:
+                return "right"
+            else:
+                return "stop"
+        
+        # Default - stop
+        return "stop"
+    
+    def decide_action(self, target_center_x, target_area):
+        """
+        OLD: Area-based control logic (FALLBACK)
+        Used when USE_DISTANCE_CONTROL = False
+        """
+        frame_center_x = FRAME_WIDTH // 2
+        
+        # Too close - stop (or backup if implemented)
         if target_area >= CLOSE_AREA:
             return "stop"
         
@@ -203,7 +352,7 @@ class AIController:
             
             try:
                 # Resize for faster processing
-                small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+                small_frame = cv2.resize(frame, (0, 0), fx=DETECTION_SCALE, fy=DETECTION_SCALE)
                 rgb_small = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
                 
                 # Detect faces
@@ -274,17 +423,28 @@ class AIController:
                         
                         # Scale back up (face_location is (top, right, bottom, left))
                         top, right, bottom, left = best_location
-                        top *= 2
-                        right *= 2
-                        bottom *= 2
-                        left *= 2
+                        scale_factor = 1.0 / DETECTION_SCALE
+                        top = int(top * scale_factor)
+                        right = int(right * scale_factor)
+                        bottom = int(bottom * scale_factor)
+                        left = int(left * scale_factor)
                         
-                        # Calculate center and area
+                        # Calculate face metrics
                         face_center_x = int((left + right) / 2)
+                        face_width = right - left
+                        face_height = bottom - top
                         face_area = float((right - left) * (bottom - top)) / float(FRAME_WIDTH * FRAME_HEIGHT)
                         
-                        # Decide action
-                        action = self.decide_action(face_center_x, face_area)
+                        # Decide action based on mode
+                        if USE_DISTANCE_CONTROL:
+                            # NEW: Distance-based control
+                            estimated_distance = self.estimate_distance_from_face_size(face_width)
+                            action = self.decide_action_distance_based(face_center_x, face_width, estimated_distance)
+                            print(f"[AI] Tracking: {best_match} | Distance: {estimated_distance:.1f}m | Face: {face_width}x{face_height}px | Action: {action} | Confidence: {confidence:.2f}")
+                        else:
+                            # OLD: Area-based control (fallback)
+                            action = self.decide_action(face_center_x, face_area)
+                            print(f"[AI] Tracking: {best_match} | Area: {face_area:.3f} | Action: {action} | Confidence: {confidence:.2f}")
                         
                         # Send motor command
                         self.state.send_motor_command(action, self.speed, source="ai")
@@ -297,8 +457,6 @@ class AIController:
                             face_detected=True,
                             body_detected=False
                         )
-                        
-                        print(f"[AI] Tracking: {best_match} | Action: {action} | Confidence: {confidence:.2f}")
                 
                 # No face detected
                 elif self.tracking_name and time.time() - self.last_face_seen <= NO_FACE_TIMEOUT_S:
