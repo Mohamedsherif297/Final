@@ -62,25 +62,34 @@ except ImportError:
 
 # Configuration
 CAMERA_INDEX = 0
-FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
+FRAME_WIDTH = 1280  # Match AI controller high-res setting
+FRAME_HEIGHT = 720
 COLLECTION_DURATION_SECONDS = 120  # 2 minutes
 CAPTURE_INTERVAL_SECONDS = 1.0  # 1 image per second
 KNOWN_FACES_DIR = "pi_minimal/known_faces/images"
 ENCODINGS_FILE = "pi_minimal/known_faces/encodings.pkl"
 
+# Important: Camera angle should match your robot's operational angle
+CAMERA_TILT_ANGLE = 50  # degrees upward (match robot camera angle)
+
 
 class DatasetCollector:
     """Automatic face dataset collection using face_recognition library"""
     
-    def __init__(self, person_name: str, output_dir: str, duration: int = 120, interval: float = 1.0):
+    def __init__(self, person_name: str, output_dir: str, duration: int = 120, interval: float = 1.0, distance_cm: int = None):
         self.person_name = person_name
         self.output_dir = output_dir
         self.duration = duration
         self.interval = interval
+        self.distance_cm = distance_cm  # Optional distance marker
         
-        # Create person directory
-        self.person_dir = os.path.join(output_dir, person_name)
+        # Create person directory with distance marker if specified
+        if distance_cm:
+            person_folder = f"{person_name}_{distance_cm}cm"
+        else:
+            person_folder = person_name
+            
+        self.person_dir = os.path.join(output_dir, person_folder)
         os.makedirs(self.person_dir, exist_ok=True)
         
         # Statistics
@@ -90,10 +99,13 @@ class DatasetCollector:
         
         print(f"Dataset Collector initialized")
         print(f"Person: {person_name}")
+        if distance_cm:
+            print(f"Collection Distance: {distance_cm} cm")
         print(f"Output directory: {self.person_dir}")
         print(f"Duration: {duration} seconds")
         print(f"Capture interval: {interval} seconds")
         print(f"Expected images: ~{int(duration / interval)}")
+        print(f"Resolution: {FRAME_WIDTH}x{FRAME_HEIGHT}")
         print(f"Using face_recognition for detection (no MediaPipe)")
     
     def get_next_filename(self) -> str:
@@ -115,12 +127,13 @@ class DatasetCollector:
     
     def detect_face(self, frame):
         """Detect face using face_recognition library"""
-        # Resize frame for faster detection (optional, but helps on Pi)
+        # Resize frame for faster detection (same as AI controller)
         small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
         rgb = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
         
-        # Detect face locations
-        face_locations = face_recognition.face_locations(rgb, model="hog")
+        # Use HOG model (faster, more lenient than CNN)
+        # Note: Using model="hog" is faster and captures more faces
+        face_locations = face_recognition.face_locations(rgb, model="hog", number_of_times_to_upsample=1)
         
         if face_locations:
             # Scale back up face locations since frame was scaled down
@@ -388,23 +401,45 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Collect dataset for person named "John"
-  python3 collect_dataset.py John
+  # Collect dataset for person named "Mohamed"
+  python3 collect_dataset.py Mohamed
+  
+  # Collect at specific distance (50cm, 100cm, 150cm)
+  python3 collect_dataset.py Mohamed --distance 50
+  python3 collect_dataset.py Mohamed --distance 100
+  python3 collect_dataset.py Mohamed --distance 150
   
   # Collect with custom duration
-  python3 collect_dataset.py John --duration 60
+  python3 collect_dataset.py Mohamed --distance 100 --duration 60
   
-  # Collect without display (headless)
-  python3 collect_dataset.py John --no-display
+  # Collect without display (headless/SSH)
+  python3 collect_dataset.py Mohamed --distance 100 --no-display
   
   # Custom output directory
-  python3 collect_dataset.py John --output /custom/path
+  python3 collect_dataset.py Mohamed --distance 100 --output /custom/path
+
+RECOMMENDED WORKFLOW (3-distance collection):
+  1. Position camera at 50cm, tilt to 50° upward
+  2. python3 collect_dataset.py Mohamed --distance 50 --no-display
+  3. Move back to 100cm (keep same angle)
+  4. python3 collect_dataset.py Mohamed --distance 100 --no-display
+  5. Move back to 150cm (keep same angle)
+  6. python3 collect_dataset.py Mohamed --distance 150 --no-display
+  
+  Result: 3 folders with ~120 images each = 360 total images
         """
     )
     
     parser.add_argument(
         "person_name",
         help="Name of the person for dataset collection"
+    )
+    
+    parser.add_argument(
+        "--distance",
+        type=int,
+        default=None,
+        help="Distance in cm from camera (e.g., 50, 100, 150). Creates folder like 'Name_50cm'"
     )
     
     parser.add_argument(
@@ -459,7 +494,8 @@ Examples:
         person_name=person_name,
         output_dir=args.output,
         duration=args.duration,
-        interval=args.interval
+        interval=args.interval,
+        distance_cm=args.distance
     )
     
     # Run collection
