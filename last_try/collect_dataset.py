@@ -507,8 +507,14 @@ RECOMMENDED WORKFLOW (3-distance collection):
     
     # Generate encodings
     if not args.no_encodings:
-        person_dir = os.path.join(args.output, person_name)
-        generate_encodings_for_person(person_name, person_dir, args.encodings_file)
+        # Use the actual folder name (with distance marker if specified)
+        if args.distance:
+            person_folder = f"{person_name}_{args.distance}cm"
+        else:
+            person_folder = person_name
+        
+        person_dir = os.path.join(args.output, person_folder)
+        generate_encodings_for_person(person_folder, person_dir, args.encodings_file)
     else:
         print("\n[SKIPPED] Encoding generation disabled")
         print("To generate encodings later, run: python3 generate_encodings.py")
